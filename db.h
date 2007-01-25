@@ -3,6 +3,7 @@
 
 #include "logging.h"
 #include "session.h"
+#include "access.h"
 
 /* vsf_db_open()
  * PURPOSE
@@ -10,8 +11,7 @@
  * PARAMETERS
  * RETURNS
  */
-void
-vsf_db_open();
+void vsf_db_open();
 
 
 /* vsf_db_close()
@@ -20,8 +20,7 @@ vsf_db_open();
  * PARAMETERS
  * RETURNS
  */
-void
-vsf_db_close();
+void vsf_db_close();
 
 
 /* vsf_db_check_auth()
@@ -35,11 +34,10 @@ vsf_db_close();
  * RETURNS
  * 1 if the authentication is valid, 0 otherwise
  */
-int
-vsf_db_check_auth(struct vsf_session* p_sess,
-                  const struct mystr* p_user_str,
-                  const struct mystr* p_pass_str,
-                  const struct mystr* p_remote_host);
+int vsf_db_check_auth(struct vsf_session* p_sess, 
+                      const struct mystr* p_user_str,
+                      const struct mystr* p_pass_str,
+                      const struct mystr* p_remote_host);
 
 
 /* vsf_db_log()
@@ -51,23 +49,16 @@ vsf_db_check_auth(struct vsf_session* p_sess,
  * what         - The type of the log entry (defined in an enum)
  * p_str        - Custom text
  */
-void
-vsf_db_log(struct vsf_session* p_sess,
-           int succeeded,
-           enum EVSFLogEntryType what,
-           const struct mystr* p_str);
+void vsf_db_log(struct vsf_session* p_sess, int succeeded,
+                enum EVSFLogEntryType what, const struct mystr* p_str);
 
-void
-vsf_db_get_session_list(struct mystr* p_str);
+void vsf_db_get_session_list(struct mystr* p_str);
 
-void
-vsf_db_add_session(struct vsf_session* p_sess);
+void vsf_db_add_session(struct vsf_session* p_sess);
 
-void
-vsf_db_del_session(struct vsf_session* p_sess);
+void vsf_db_del_session(struct vsf_session* p_sess);
 
-void
-vsf_db_cleanup();
+void vsf_db_cleanup();
 
 /* vsf_db_check_remote_host
  * PURPOSE
@@ -79,7 +70,10 @@ vsf_db_cleanup();
  * RETURNS
  * 1 if the IP is valid, otherwhise 0
  */
-int
-vsf_db_check_remote_host(const struct mystr* p_remote_host);
+int vsf_db_check_remote_host(const struct mystr* p_remote_host);
 
+
+int vsf_db_check_file(const struct mystr* p_filename_str, 
+                      enum EVSFFileAccess what);
+                      
 #endif /* VSF_DB_H */
