@@ -1,3 +1,5 @@
+#summary Describes the new features of vsftpdx compared to the original vsftpd.
+
 This document describes the new features of vsftpdx which are not present in the original vsftpd. Check out the [http://vsftpd.beasts.org/#features vsftpd homepage] for the inherited features.
 
 *Database for virtual users*
