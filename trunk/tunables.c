@@ -75,6 +75,7 @@ int tunable_sqlite_enable = 0;
 int tunable_sqlite_log = 0;
 int tunable_calc_crc32 = 0;
 int tunable_ident_check_enable = 0;
+int tunable_stealth_mode_enable = 0;
 
 unsigned int tunable_accept_timeout = 60;
 unsigned int tunable_connect_timeout = 60;

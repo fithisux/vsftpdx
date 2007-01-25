@@ -23,6 +23,9 @@
 #include "ssl.h"
 #include "features.h"
 #include "defs.h"
+#include "builddefs.h"
+#include "port/porting_junk.h"
+#include "db.h"
 
 /* Functions used */
 static void emit_greeting(struct vsf_session* p_sess);
@@ -37,6 +40,23 @@ init_connection(struct vsf_session* p_sess)
   {
     vsf_sysutil_setproctitle("not logged in");
   }
+  
+  #ifdef VSF_BUILD_SQLITE
+  /* In stealth mode we wont answer the connection unless the remote host
+   * is known to our database.
+   */
+  if (tunable_sqlite_enable && tunable_stealth_mode_enable)
+  {
+    int retval = vsf_db_check_remote_host(&p_sess->remote_ip_str);
+    if (retval == 0)
+    {
+      /* The IP check failed we drop the connection silently. */
+      vsf_sysutil_shutdown_read_failok(VSFTP_COMMAND_FD);
+      vsf_sysutil_exit(0);        
+    }
+  }
+  #endif
+    
   /* Before we talk to the remote, make sure an alarm is set up in case
    * writing the initial greetings should block.
    */

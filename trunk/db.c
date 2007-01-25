@@ -107,7 +107,7 @@ update_last_login(int uid)
   }
 }
 
-int
+void
 vsf_db_open()
 { 
   int rc = sqlite3_open(VFS_DB_FILENAME, &db_handle);
@@ -117,7 +117,6 @@ vsf_db_open()
     die2("unable to open sqlite database: ", 
       sqlite3_errmsg(db_handle));
   }  
-  return 0;
 }
 
 void
@@ -387,6 +386,33 @@ vsf_db_cleanup()
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }  
+}
+
+int
+vsf_db_check_remote_host(const struct mystr* p_remote_host)
+{
+  int rc = 0;
+  char* sql_err = 0;
+  struct mystr sql_str = INIT_MYSTR;
+  
+  str_alloc_text(&sql_str,
+    "select count(*) from vsf_ipmask where '");
+  str_append_str(&sql_str, p_remote_host);
+  str_append_text(&sql_str, "' glob mask");
+
+  const char* sqlbuf = str_getbuf(&sql_str);
+  int valid = 0;
+  rc = sqlite3_exec(db_handle, sqlbuf, cb_ipcheck, (void*) &valid, &sql_err);
+  str_free(&sql_str);
+  if (rc != SQLITE_OK)
+  {
+    sqlite3_close(db_handle);
+    die2("sql error: ", sql_err); /* Exit */
+    /* sqlite3_free(sql_err); */
+    return 0;
+  }
+
+  return valid;
 }
 
 #endif
