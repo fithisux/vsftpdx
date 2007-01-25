@@ -19,6 +19,8 @@
 #include "str.h"
 #include "ipaddrparse.h"
 #include "db.h"
+#include "builddefs.h"
+#include "port/porting_junk.h"
 
 static unsigned int s_children;
 static struct hash* s_p_ip_count_hash;
