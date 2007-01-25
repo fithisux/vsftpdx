@@ -9,7 +9,7 @@ Step 1) Build vsftpd.
 Switch to the directory created when you unpacked the vsftpd .tar.gz file.
 e.g.:
 
-cd vsftpd-1.1.2
+cd vsftpdx-2.1.0
 
 edit "builddefs.h" to handle compile-time settings (tcp_wrappers build,
 etc).
@@ -163,4 +163,4 @@ the platforms listed below, and often older ones, should work fine.
 - IRIX / GNU tools
 - AIX / GNU tools
 - Mac OS X (note; older versions have setgroups() problem. 10.3.4 reported OK)
-
+- Cygwin on Windows XP
