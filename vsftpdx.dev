@@ -1,7 +1,7 @@
 [Project]
 FileName=vsftpdx.dev
 Name=vsftpdx
-UnitCount=89
+UnitCount=90
 Type=1
 Ver=1
 ObjFiles=
@@ -20,7 +20,7 @@ ObjectOutput=
 OverrideOutput=1
 OverrideOutputName=vsftpd.exe
 HostApplication=
-Folders=port
+Folders=config,port
 CommandLine=./vsftpd.conf
 UseCustomMakefile=1
 CustomMakefile=Makefile
@@ -931,6 +931,15 @@ CompileCpp=0
 Folder=vsftpdx
 Compile=1
 Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit90]
+FileName=vsftpd.conf
+Folder=config
+Compile=0
+Link=0
 Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
