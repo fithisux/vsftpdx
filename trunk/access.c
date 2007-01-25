@@ -13,7 +13,8 @@
 #include "str.h"
 
 int
-vsf_access_check_file(const struct mystr* p_filename_str)
+vsf_access_check_file(const struct mystr* p_filename_str,
+                      enum EVSFFileAccess what)
 {
   static struct mystr s_access_str;
 
