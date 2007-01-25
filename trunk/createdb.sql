@@ -128,6 +128,8 @@ create table vsf_perm (
   section_id  integer    not null,
   user_id     integer    null,
   group_id    integer    null,
+  
+  file_view   integer    not null default 0,
   file_get    integer    not null default 0,
   file_put    integer    not null default 0,
   file_resume integer    not null default 0,
@@ -135,6 +137,7 @@ create table vsf_perm (
   file_rename integer    not null default 0,
 
   dir_view    integer    not null default 0,
+  dir_change  integer    not null default 0,
   dir_list    integer    not null default 0,
   dir_create  integer    not null default 0,
   dir_del     integer    not null default 0,
