@@ -1,6 +1,6 @@
 #summary Describes the new features of vsftpdx compared to the original vsftpd.
 
-This document describes the new features of vsftpdx which are not present in the original vsftpd. Check out the [http://vsftpd.beasts.org/#features vsftpd homepage] for the inherited features.
+Check out the [http://vsftpd.beasts.org/#features vsftpd homepage] for the inherited features.
 
 *Database for virtual users*
 
@@ -14,6 +14,11 @@ If the configuration option _sqlite_log=YES_ is set, the server will write all l
 
 If the configuration option _stealth_mode_enable=YES_ is set, the server will drop any incoming connection if the remote IP address does not match any IP mask in the database without any message to the client.
 
+*Cygwin support*
 
+Using [http://www.cygwin.com cygwin] it is now possible to run this version vsftpd on Windows too.
+
+*Optional IPv6*
+To compile vsftpdx on cygwin and older UNIX systems which do not support IPv6 the new build option VSF_BUILD_IPV6 can be used to disable the IPv6 code.
 
 (1) Requires SQLite support, which is enabled using the definition _#define VSF_BUILD_SQLITE_ in _builddefs.h_ during compile time.
