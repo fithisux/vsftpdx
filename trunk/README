@@ -1,7 +1,18 @@
-This is vsftpd, version 2.0.5
+This is vsftpdx, version 2.1.0
+Author: Robert Hahn
+Contact: robert.hahn@gmail.com
+Website: http://code.google.com/p/vsftpdx/
+
+based on vsftpd, version 2.0.5
 Author: Chris Evans
 Contact: chris@scary.beasts.org
 Website: http://vsftpd.beasts.org/
+
+IMPORTANT
+=========
+Please don't contact Chris Evans about problems which are specific to the 
+extensions in vsftpdx but don't exist in the original vsftp.
+
 - All options are documented in the vsftpd.conf.5 manual page.
 - See the FAQ file for solutions to frequently asked questions.
 - Visit http://vsftpd.beasts.org/ for vsftpd news and releases.
@@ -13,6 +24,9 @@ vsftpd is an FTP server, or daemon. The "vs" stands for Very Secure. Obviously
 this is not a guarantee, but a reflection that I have written the entire
 codebase with security in mind, and carefully designed the program to be
 resilient to attack.
+
+vsftpdx is an extended version of vsftpd which is optimized for private non
+anonymous servers.
 
 Recent evidence shows that vsftpd is also extremely fast and scalable. vsftpd
 has achieved ~4000 concurrent users on a single machine, in a production
