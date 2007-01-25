@@ -1,6 +1,4 @@
-#summary The new features of vsftpdx
 #labels Featured
-
 This document describes the new features of vsftpdx which are not present in the original vsftpd.
 
 *Database for virtual users*
