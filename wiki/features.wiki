@@ -1,0 +1,21 @@
+#summary The new features of vsftpdx
+#labels Featured,features
+
+This document describes the new features of vsftpdx which are not present in the original vsftpd.
+
+*Database for virtual users*
+
+If the configuration option _sqlite_enable=YES_ is set, the server will handle the user authentication during the login phase using a local SQLite database. The default name for this database is _site.db_. The included script _createdb.sh_ can be used to create a new default database. (1)
+
+*Log to database*
+
+If the configuration option _sqlite_log=YES_ is set, the server will write all log entries to the SQLite database (table _vsf_log_) instead of text files. (1)
+
+*Stealth mode*
+
+If the configuration option _stealth_mode_enable=YES_ is set, the server will drop any incoming connection if the remote IP address does not match any IP mask in the database without any message to the client.
+
+
+
+(1) Requires SQLite support, which is enabled using the definition _#define VSF_BUILD_SQLITE_ in _builddefs.h_ during compile time.
+
