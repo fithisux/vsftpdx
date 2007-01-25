@@ -1,0 +1,12 @@
+#ifndef VSF_BUILDDEFS_H
+#define VSF_BUILDDEFS_H
+
+#undef VSF_BUILD_TCPWRAPPERS
+#define VSF_BUILD_PAM
+#define VSF_BUILD_SSL
+#define VSF_BUILD_SQLITE
+#define VSF_BUILD_IPV6
+#define VSF_BUILD_IDENT
+
+#endif /* VSF_BUILDDEFS_H */
+
