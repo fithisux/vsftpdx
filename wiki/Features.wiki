@@ -19,6 +19,11 @@ If the configuration option _stealth_mode_enable=YES_ is set, the server will dr
 Using [http://www.cygwin.com cygwin] it is now possible to run this version vsftpd on Windows too.
 
 *Optional IPv6*
+
 To compile vsftpdx on cygwin and older UNIX systems which do not support IPv6 the new build option VSF_BUILD_IPV6 can be used to disable the IPv6 code.
+
+*RFC1413 compatible ident checks*
+
+Set the configuration option _ident_check_enable=YES_ to enable the ident checks during the login phase. This is only possible if the SQLite database is used for user authentication.
 
 (1) Requires SQLite support, which is enabled using the definition _#define VSF_BUILD_SQLITE_ in _builddefs.h_ during compile time.
