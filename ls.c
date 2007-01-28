@@ -20,7 +20,8 @@ static void build_dir_line(struct mystr* p_str,
                            const struct vsf_sysutil_statbuf* p_stat);
 
 void
-vsf_ls_populate_dir_list(struct mystr_list* p_list,
+vsf_ls_populate_dir_list(struct vsf_session* p_sess,
+                         struct mystr_list* p_list,
                          struct mystr_list* p_subdir_list,
                          struct vsf_sysutil_dir* p_dir,
                          const struct mystr* p_base_dir_str,
@@ -109,7 +110,7 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
       }
     }
     /* Don't show hidden directory entries */
-    if (!vsf_access_check_file_visible(&s_next_filename_str))
+    if (!vsf_access_check_file_visible(p_sess, &s_next_filename_str))
     {
       continue;
     }

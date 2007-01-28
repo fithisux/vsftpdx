@@ -11,12 +11,20 @@
 #include "ls.h"
 #include "tunables.h"
 #include "str.h"
+#include "db.h"
 
 int
-vsf_access_check_file(const struct mystr* p_filename_str,
+vsf_access_check_file(const struct vsf_session* p_sess,
+                      const struct mystr* p_filename_str,
                       enum EVSFFileAccess what)
 {
   static struct mystr s_access_str;
+
+  if (tunable_sqlite_enable)
+  {
+    /* Use the permissions from the database */
+    return vsf_db_check_file(p_sess, p_filename_str, what);
+  }
 
   if (!tunable_deny_file)
   {
@@ -43,7 +51,8 @@ vsf_access_check_file(const struct mystr* p_filename_str,
 }
 
 int
-vsf_access_check_file_visible(const struct mystr* p_filename_str)
+vsf_access_check_file_visible(const struct vsf_session* p_sess,
+                              const struct mystr* p_filename_str)
 {
   static struct mystr s_access_str;
 

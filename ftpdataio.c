@@ -297,8 +297,9 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
   {
     p_subdir_list = &subdir_list;
   }
-  vsf_ls_populate_dir_list(&dir_list, p_subdir_list, p_dir, p_base_dir_str,
-                           p_option_str, p_filter_str, is_verbose);
+  vsf_ls_populate_dir_list(p_sess, &dir_list, p_subdir_list, p_dir,
+                           p_base_dir_str, p_option_str, p_filter_str,
+                           is_verbose);
   if (p_subdir_list)
   {
     int retval;

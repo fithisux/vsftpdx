@@ -60,7 +60,7 @@ void vsf_db_del_session(struct vsf_session* p_sess);
 
 void vsf_db_cleanup();
 
-/* vsf_db_check_remote_host
+/* vsf_db_check_remote_host()
  * PURPOSE
  * Checks if a remote host is allowed to connect by comparing its IP address
  * with all entries in the user database. If it matches any IP mask of any
@@ -72,8 +72,12 @@ void vsf_db_cleanup();
  */
 int vsf_db_check_remote_host(const struct mystr* p_remote_host);
 
-
-int vsf_db_check_file(const struct mystr* p_filename_str, 
+/* vsf_db_check_file()
+ * PURPOSE
+ * Checks the access permissions for the given file or directory.
+ */
+int vsf_db_check_file(const struct vsf_session* p_sess,
+                      const struct mystr* p_filename_str,
                       enum EVSFFileAccess what);
                       
 #endif /* VSF_DB_H */
