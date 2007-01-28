@@ -23,6 +23,7 @@
 #include "vsftpver.h"
 #include "ssl.h"
 #include "db.h"
+#include "builddefs.h"
 
 /*
  * Forward decls of helper functions
@@ -114,6 +115,24 @@ main(int argc, const char* argv[])
     }
     vsf_sysutil_free(p_statbuf);
   }
+
+  #ifndef VSF_BUILD_SQLITE
+  if (tunable_Sqlite_enable)
+  {
+    die("vsftpd: sqlite_enable=YES but compiled without SQLite support.");
+  }
+  #endif
+
+  if (!tunable_sqlite_enable)
+  {
+    if (tunable_sqlite_log ||
+        tunable_ident_check_enable ||
+        tunable_stealth_mode)
+    {
+      die("vsftpd: invalid configuration, sqlite support is required.");
+    }
+  }
+
   /* Resolve pasv_address if required */
   if (tunable_pasv_address && tunable_pasv_addr_resolve)
   {

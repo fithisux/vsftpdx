@@ -45,7 +45,7 @@ init_connection(struct vsf_session* p_sess)
   /* In stealth mode we wont answer the connection unless the remote host
    * is known to our database.
    */
-  if (tunable_sqlite_enable && tunable_stealth_mode_enable)
+  if (tunable_sqlite_enable && tunable_stealth_mode)
   {
     int retval = vsf_db_check_remote_host(&p_sess->remote_ip_str);
     if (retval == 0)
