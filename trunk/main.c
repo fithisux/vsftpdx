@@ -129,7 +129,7 @@ main(int argc, const char* argv[])
         tunable_ident_check_enable ||
         tunable_stealth_mode)
     {
-      die("vsftpd: invalid configuration, sqlite support is required.");
+      die("vsftpd: some of your config options require sqlite_enable=YES.");
     }
   }
 

@@ -13,11 +13,16 @@
 #include "rfc1413.h"
 #include "tunables.h"
 #include "defs.h"
+#include "access.h"
+#include "sysstr.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-static sqlite3* db_handle;
+#define MAX_BUSY_TRIES 10
+
+static sqlite3* s_db_handle = NULL;
+static sqlite3_stmt* s_check_file_stmt = NULL;
 
 static int
 cb_auth(void* param, int argc, char **argv, char **colnames)
@@ -97,11 +102,11 @@ update_last_login(int uid)
   str_append_ulong(&sql_str, uid);
   const char* sqlbuf = str_getbuf(&sql_str);
 
-  rc = sqlite3_exec(db_handle, sqlbuf, NULL, NULL, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, NULL, NULL, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
@@ -110,12 +115,12 @@ update_last_login(int uid)
 void
 vsf_db_open()
 { 
-  int rc = sqlite3_open(VFS_DB_FILENAME, &db_handle);
+  int rc = sqlite3_open(VFS_DB_FILENAME, &s_db_handle);
   if (rc)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("unable to open sqlite database: ", 
-      sqlite3_errmsg(db_handle));
+      sqlite3_errmsg(s_db_handle));
   }  
 }
 
@@ -178,11 +183,11 @@ vsf_db_log(struct vsf_session* p_sess,
   str_append_text(&sql_str, ")");
 
   const char* sqlbuf = str_getbuf(&sql_str);
-  rc = sqlite3_exec(db_handle, sqlbuf, NULL, NULL, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, NULL, NULL, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }    
@@ -202,12 +207,12 @@ vsf_db_get_session_list(struct mystr* p_str)
     "select id, user_id, remote_ip from vsf_session");
   
   const char* sqlbuf = str_getbuf(&sql_str);
-  rc = sqlite3_exec(db_handle, sqlbuf, cb_get_session_list, 
+  rc = sqlite3_exec(s_db_handle, sqlbuf, cb_get_session_list,
     (void*) p_str, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
     return;
@@ -232,16 +237,16 @@ vsf_db_add_session(struct vsf_session* p_sess)
   str_append_text(&sql_str, ")"); 
 
   const char* sqlbuf = str_getbuf(&sql_str);
-  rc = sqlite3_exec(db_handle, sqlbuf, NULL, NULL, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, NULL, NULL, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
   
-  long long int rowid = sqlite3_last_insert_rowid(db_handle);
+  long long int rowid = sqlite3_last_insert_rowid(s_db_handle);
   p_sess->id = (int) rowid;
 }
 
@@ -258,11 +263,11 @@ vsf_db_del_session(const struct vsf_session* p_sess)
   str_append_ulong(&sql_str, p_sess->id);
   const char* sqlbuf = str_getbuf(&sql_str);
 
-  rc = sqlite3_exec(db_handle, sqlbuf, NULL, NULL, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, NULL, NULL, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
@@ -272,7 +277,7 @@ vsf_db_del_session(const struct vsf_session* p_sess)
 void
 vsf_db_close()
 {
-  sqlite3_close(db_handle);
+  sqlite3_close(s_db_handle);
 }
 
 int
@@ -299,11 +304,11 @@ vsf_db_check_auth(struct vsf_session* p_sess,
 
   const char* sqlbuf = str_getbuf(&sql_str);
   int uid = -1;
-  rc = sqlite3_exec(db_handle, sqlbuf, cb_auth, (void*) &uid, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, cb_auth, (void*) &uid, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
     return 0;
@@ -349,11 +354,12 @@ vsf_db_check_auth(struct vsf_session* p_sess,
 
   sqlbuf = str_getbuf(&sql_str);
   int ipvalid = 0;
-  rc = sqlite3_exec(db_handle, sqlbuf, cb_ipcheck, (void*) &ipvalid, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, cb_ipcheck, (void*) &ipvalid,
+                    &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err);
     /* sqlite3_free(sql_err); */
     return 0;
@@ -378,11 +384,11 @@ vsf_db_cleanup()
     
   str_alloc_text(&sql_str, "delete from vsf_session");
   const char* sqlbuf = str_getbuf(&sql_str);
-  rc = sqlite3_exec(db_handle, sqlbuf, NULL, NULL, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, NULL, NULL, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }  
@@ -402,17 +408,202 @@ vsf_db_check_remote_host(const struct mystr* p_remote_host)
 
   const char* sqlbuf = str_getbuf(&sql_str);
   int valid = 0;
-  rc = sqlite3_exec(db_handle, sqlbuf, cb_ipcheck, (void*) &valid, &sql_err);
+  rc = sqlite3_exec(s_db_handle, sqlbuf, cb_ipcheck, (void*) &valid, &sql_err);
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(db_handle);
+    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
     return 0;
   }
 
   return valid;
+}
+
+
+int vsf_db_check_file(const struct vsf_session* p_sess,
+                      const struct mystr* p_filename_str,
+                      enum EVSFFileAccess what)
+{
+  struct mystr what_str = INIT_MYSTR;
+  int rc = 0;
+  int busy_count = 0;
+  int perm = 0;
+  int final_perm = 0;
+
+  struct mystr path_str = INIT_MYSTR;
+  str_getcwd(&path_str);
+  str_append_text(&path_str, "/");
+  str_append_str(&path_str, p_filename_str);
+
+
+  switch (what)
+  {
+  case kVSFFileView:
+    str_alloc_text(&what_str, "f_view");
+    break;
+
+  case kVSFFileGet:
+    str_alloc_text(&what_str, "f_get");
+    break;
+
+  case kVSFFilePut:
+    str_alloc_text(&what_str, "f_put");
+    break;
+
+  case kVSFFileResume:
+    str_alloc_text(&what_str, "f_resume");
+    break;
+
+  case kVSFFileDelete:
+    str_alloc_text(&what_str, "f_delete");
+    break;
+
+  case kVSFFileRename:
+    str_alloc_text(&what_str, "f_rename");
+    break;
+
+  case kVSFDirView:
+    str_alloc_text(&what_str, "d_view");
+    break;
+
+  case kVSFDirList:
+    str_alloc_text(&what_str, "d_list");
+    break;
+
+  case kVSFDirChange:
+    str_alloc_text(&what_str, "d_change");
+    break;
+
+  case kVSFDirCreate:
+    str_alloc_text(&what_str, "d_create");
+    break;
+
+  case kVSFDirDelete:
+    str_alloc_text(&what_str, "d_delete");
+    break;
+
+  default:
+    bug("vsf_db_check_file(): invalid permission parameter");
+  }
+
+
+  struct mystr sql_str = INIT_MYSTR;
+  str_alloc_text(&sql_str, "select p.");
+  str_append_str(&sql_str, &what_str);
+  str_append_text(&sql_str,
+    " from vsf_section s, vsf_section_perm p"
+    " where s.id = p.section_id and ? glob s.path and"
+    "   (p.user_id = ? or p.group_id in ("
+    "     select g.id from vsf_group g, vsf_member m"
+    "       where g.id = m.group_id and m.user_id = ?)"
+    "   ) order by length(s.path) desc");
+
+
+
+  const char* p_tail = NULL;
+
+  if (s_check_file_stmt == NULL)
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
+                       &s_check_file_stmt, &p_tail);
+  else
+    rc = sqlite3_reset(s_check_file_stmt);
+
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to prepare statement");
+
+  /* Permission */
+  /*
+  rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&what_str), -1,
+                    SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to bind parameter");
+  */
+
+  /* Path */
+  rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&path_str), -1,
+                    SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to bind parameter");
+
+  /* User ID */
+  rc = sqlite3_bind_int(s_check_file_stmt, 2, p_sess->user_id);
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to bind parameter");
+
+  /* User ID again */
+  rc = sqlite3_bind_int(s_check_file_stmt, 3, p_sess->user_id);
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to bind parameter");
+
+
+  /* Now we execute the SQL statement. Handle the possibility that
+     sqlite is busy, but drop out after a number of attempts. */
+  int step = 1;
+  while (step)
+  {
+    rc = sqlite3_step(s_check_file_stmt);
+
+    switch (rc)
+    {
+      case SQLITE_BUSY:    /*We must try again, but not forever.*/
+        if (busy_count++ > MAX_BUSY_TRIES)
+        {
+          sqlite3_reset(s_check_file_stmt);
+          die("vsf_db_check_file(): db locked");
+        }
+        vsf_sysutil_sleep(0);  /*For a gentler poll.*/
+        break;
+
+      case SQLITE_DONE:    /*Success.*/
+        sqlite3_reset(s_check_file_stmt); /*Ready for next step.*/
+        step = 0;
+        break;
+
+      case SQLITE_ROW:     /*A row is ready.*/
+        perm = sqlite3_column_int(s_check_file_stmt, 0);
+        switch (perm)
+        {
+          case 0:
+            break;
+
+          case 1:
+            final_perm = 1; /* Allowed if no explicit deny is found */
+            break;
+
+          case -1:
+            sqlite3_reset(s_check_file_stmt);
+            final_perm = 0; /* Access denied */
+            step = 0;       /* Abort loop */
+            break;
+
+          default:
+            bug("vsf_db_check_file(): invalid permission value in database");
+        }
+        break;
+
+      case SQLITE_ERROR:   /*Run time error, discard the VM.*/
+        sqlite3_reset(s_check_file_stmt);
+   		  die2("vsf_db_check_file(): sqlite error ",
+             sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
+        break;
+
+      case SQLITE_MISUSE:  /*VM should not have been used.*/
+        sqlite3_reset(s_check_file_stmt);
+    		die("vsf_db_check_file(): sqlite misuse");  /*Fatal DB Error.*/
+        break;
+
+      default:
+        sqlite3_reset(s_check_file_stmt);
+        die("vsf_db_check_file(): unexpected result");  /*Fatal DB Error.*/
+        break;
+    }  /*switch*/
+  }    /*while*/
+
+
+  str_free(&what_str);
+  return final_perm;
 }
 
 #endif

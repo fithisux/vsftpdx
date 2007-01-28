@@ -12,7 +12,7 @@ drop table if exists vsf_log;
 drop table if exists vsf_event;
 drop table if exists vsf_session;
 drop table if exists vsf_section;
-drop table if exists vsf_perm;
+drop table if exists vsf_section_perm;
 
 -------------------------------------------------------------------------------
 -- Meta data
@@ -123,25 +123,25 @@ create table vsf_section (
 -- Permissions for a filesystem section. Each permission can have the values
 -- 0 = inherit from parent, 1 = implicit allow, -1 = explicit deny
 -------------------------------------------------------------------------------
-create table vsf_perm (
+create table vsf_section_perm (
   id          integer    primary key,
   section_id  integer    not null,
   user_id     integer    null,
   group_id    integer    null,
   
-  file_view   integer    not null default 0,
-  file_get    integer    not null default 0,
-  file_put    integer    not null default 0,
-  file_resume integer    not null default 0,
-  file_delete integer    not null default 0,
-  file_rename integer    not null default 0,
+  f_view      integer    not null default 0,
+  f_get       integer    not null default 0,
+  f_put       integer    not null default 0,
+  f_resume    integer    not null default 0,
+  f_delete    integer    not null default 0,
+  f_rename    integer    not null default 0,
 
-  dir_view    integer    not null default 0,
-  dir_change  integer    not null default 0,
-  dir_list    integer    not null default 0,
-  dir_create  integer    not null default 0,
-  dir_del     integer    not null default 0,
-  dir_rename  integer    not null default 0  
+  d_view      integer    not null default 0,
+  d_change    integer    not null default 0,
+  d_list      integer    not null default 0,
+  d_create    integer    not null default 0,
+  d_delete    integer    not null default 0,
+  d_rename    integer    not null default 0
 );
 
 
@@ -165,3 +165,7 @@ insert into vsf_group(id, name) values (0, 'siteops');
 insert into vsf_member(user_id, group_id) values (0, 0);
 insert into vsf_ipmask(id, user_id, mask) values (0, 0, '127.0.0.1');
 insert into vsf_section(id, path, name) values (0, '/*', 'main');
+insert into vsf_section_perm(id, section_id, user_id, group_id,
+  f_view, f_get, f_put, f_resume, f_delete, f_rename,
+  d_view, d_change, d_list, d_create, d_delete, d_rename)
+  values(0, 0, 0, -1,   1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1);
