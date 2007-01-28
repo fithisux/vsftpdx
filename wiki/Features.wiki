@@ -13,7 +13,7 @@ If the configuration option _sqlite_log=YES_ is set, the server will write all l
 entries to the SQLite database (table _vsf_log_) instead of text files. (1)
 
 ===Stealth mode===
-If the configuration option _stealth_mode_enable=YES_ is set, the server will drop
+If the configuration option _stealth_mode=YES_ is set, the server will drop
 any incoming connection if the remote IP address does not match any IP mask in the
 database without any message to the client. (1)
 
