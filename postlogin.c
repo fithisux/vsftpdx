@@ -1154,7 +1154,7 @@ handle_rmd(struct vsf_session* p_sess)
   vsf_log_start_entry(p_sess, kVSFLogEntryRmdir);
   str_copy(&p_sess->log_str, &p_sess->ftp_arg_str);
   prepend_path_to_filename(&p_sess->log_str);
-  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFDirDel))
+  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFDirDelete))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1181,7 +1181,7 @@ handle_dele(struct vsf_session* p_sess)
   vsf_log_start_entry(p_sess, kVSFLogEntryDelete);
   str_copy(&p_sess->log_str, &p_sess->ftp_arg_str);
   prepend_path_to_filename(&p_sess->log_str);
-  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFFileDel))
+  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFFileDelete))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
@@ -1267,7 +1267,7 @@ handle_rnto(struct vsf_session* p_sess)
   str_copy(&s_tmp_str, &p_sess->ftp_arg_str);
   prepend_path_to_filename(&s_tmp_str);
   str_append_str(&p_sess->log_str, &s_tmp_str);
-  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFFileDel))
+  if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFFileDelete))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
