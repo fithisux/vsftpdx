@@ -1,5 +1,5 @@
 #summary How to install vsftpdx
-#labels Phase-Deploy
+#labels Phase-Deploy,Featured
 
 ===Install required packages===
 The following packages are required to compile and execute the program:
