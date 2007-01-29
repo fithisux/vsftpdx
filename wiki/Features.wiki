@@ -24,14 +24,14 @@ on Windows too.
 
 ===Optional IPv6===
 To compile vsftpdx on cygwin and older UNIX systems which do not support IPv6 the
-new build option VSF_BUILD_IPV6 can be used to disable the IPv6 code.
+new build option _VSF_BUILD_IPV6_ can be used to disable the IPv6 code.
 
 ===Ident check===
 Set the configuration option _ident_check_enable=YES_ to enable the ident checks
 (RFC 1413 compatible) during the login phase. (1)
 
 ===SITE WHO command===
-The new SITE WHO command shows a list of all connected clients. The database is used
+The new command _SITE WHO_ shows a list of all connected clients. The database is used
 to store the session information. (1)
 
 (1) Requires SQLite support, which is enabled using the definition _#define VSF_BUILD_SQLITE_ in _builddefs.h_ during compile time.
