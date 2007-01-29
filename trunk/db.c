@@ -22,7 +22,6 @@
 #define MAX_BUSY_TRIES 10
 
 static sqlite3* s_db_handle = NULL;
-static sqlite3_stmt* s_check_file_stmt = NULL;
 
 static int
 cb_auth(void* param, int argc, char **argv, char **colnames)
@@ -480,14 +479,42 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
                       enum EVSFFileAccess what)
 {
-  struct mystr what_str = INIT_MYSTR;
-  struct mystr sql_str = INIT_MYSTR;
-  struct mystr path_str = INIT_MYSTR;
+  static sqlite3_stmt* s_check_file_stmt = NULL;
+  static struct mystr what_str = INIT_MYSTR;
+  static struct mystr sql_str = INIT_MYSTR;
+  static struct mystr path_str = INIT_MYSTR;
   int rc = 0;
   int busy_count = 0;
   int perm = 0;
   int final_perm = 0;
   const char* p_tail = NULL;
+
+  /* Compile the SQL statement the first time it is used */
+  if (s_check_file_stmt == NULL)
+  {
+    /* Build the SQL statement */
+    str_alloc_text(&sql_str, "select p.");
+    str_append_str(&sql_str, &what_str);
+    str_append_text(&sql_str,
+      " from vsf_section s, vsf_section_perm p"
+      " where s.id = p.section_id and ? glob s.path and"
+      "   (p.user_id = ? or p.group_id in ("
+      "     select g.id from vsf_group g, vsf_member m"
+      "       where g.id = m.group_id and m.user_id = ?)"
+      "   ) order by length(s.path) desc");
+
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
+                            &s_check_file_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+      die("vsf_db_check_file(): unable to prepare statement");
+  }
+  else
+  {
+    /* Reuse the prepared statement */
+    rc = sqlite3_reset(s_check_file_stmt);
+    if (rc != SQLITE_OK)
+      die("vsf_db_check_file(): unable to reset statement");
+  }
 
   /* Build the full path */
   str_getcwd(&path_str);
@@ -496,27 +523,6 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
 
   /* Get the column name of the permission */
   get_perm_column(what, &what_str);
-
-  /* Build the SQL statement */
-  str_alloc_text(&sql_str, "select p.");
-  str_append_str(&sql_str, &what_str);
-  str_append_text(&sql_str,
-    " from vsf_section s, vsf_section_perm p"
-    " where s.id = p.section_id and ? glob s.path and"
-    "   (p.user_id = ? or p.group_id in ("
-    "     select g.id from vsf_group g, vsf_member m"
-    "       where g.id = m.group_id and m.user_id = ?)"
-    "   ) order by length(s.path) desc");
-
-  /* Compile the SQL statement the first time it is used */
-  if (s_check_file_stmt == NULL)
-    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
-                       &s_check_file_stmt, &p_tail);
-  else
-    rc = sqlite3_reset(s_check_file_stmt);
-
-  if (rc != SQLITE_OK)
-    die("vsf_db_check_file(): unable to prepare statement");
 
   /* Path */
   rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&path_str), -1,
@@ -539,16 +545,14 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   int step = 1;
   while (step)
   {
-    rc = sqlite3_step(s_check_file_stmt); /* Execute the statement */
+    /* Execute the statement */
+    rc = sqlite3_step(s_check_file_stmt);
 
     switch (rc)
     {
       case SQLITE_BUSY:    /*We must try again, but not forever.*/
         if (busy_count++ > MAX_BUSY_TRIES)
-        {
-          sqlite3_reset(s_check_file_stmt);
           die("vsf_db_check_file(): db locked");
-        }
         vsf_sysutil_sleep(0);  /*For a gentler poll.*/
         break;
 
@@ -578,25 +582,23 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         break;
 
       case SQLITE_ERROR:   /*Run time error, discard the VM.*/
-        sqlite3_reset(s_check_file_stmt);
    		  die2("vsf_db_check_file(): sqlite error ",
              sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
         break;
 
       case SQLITE_MISUSE:  /*VM should not have been used.*/
-        sqlite3_reset(s_check_file_stmt);
     		die("vsf_db_check_file(): sqlite misuse");  /*Fatal DB Error.*/
         break;
 
       default:
-        sqlite3_reset(s_check_file_stmt);
         die("vsf_db_check_file(): unexpected result");  /*Fatal DB Error.*/
         break;
     }  /*switch*/
   }    /*while*/
 
-  sqlite3_reset(s_check_file_stmt);
   str_free(&what_str);
+  str_free(&sql_str);
+  str_free(&path_str);
   return final_perm;
 }
 
