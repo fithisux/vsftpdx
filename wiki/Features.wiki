@@ -1,4 +1,5 @@
 #summary Describes the new features of vsftpdx compared to the original vsftpd.
+#labels Featured
 
 Check out the [http://vsftpd.beasts.org/#features vsftpd homepage] for the inherited features.
 
