@@ -479,7 +479,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
                       enum EVSFFileAccess what)
 {
-  static sqlite3_stmt* s_check_file_stmt = NULL;
+  static sqlite3_stmt* check_file_stmt = NULL;
   static struct mystr what_str = INIT_MYSTR;
   static struct mystr sql_str = INIT_MYSTR;
   static struct mystr path_str = INIT_MYSTR;
@@ -489,54 +489,43 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   int final_perm = 0;
   const char* p_tail = NULL;
 
-  /* Compile the SQL statement the first time it is used */
-  if (s_check_file_stmt == NULL)
-  {
-    /* Build the SQL statement */
-    str_alloc_text(&sql_str, "select p.");
-    str_append_str(&sql_str, &what_str);
-    str_append_text(&sql_str,
-      " from vsf_section s, vsf_section_perm p"
-      " where s.id = p.section_id and ? glob s.path and"
-      "   (p.user_id = ? or p.group_id in ("
-      "     select g.id from vsf_group g, vsf_member m"
-      "       where g.id = m.group_id and m.user_id = ?)"
-      "   ) order by length(s.path) desc");
+  /* Get the column name of the permission */
+  get_perm_column(what, &what_str);
 
-    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
-                            &s_check_file_stmt, &p_tail);
-    if (rc != SQLITE_OK)
-      die("vsf_db_check_file(): unable to prepare statement");
-  }
-  else
-  {
-    /* Reuse the prepared statement */
-    rc = sqlite3_reset(s_check_file_stmt);
-    if (rc != SQLITE_OK)
-      die("vsf_db_check_file(): unable to reset statement");
-  }
+  /* Build the SQL statement */
+  str_alloc_text(&sql_str, "select p.");
+  str_append_str(&sql_str, &what_str);
+  str_append_text(&sql_str,
+    " from vsf_section s, vsf_section_perm p"
+    " where s.id = p.section_id and ? glob s.path and"
+    "   (p.user_id = ? or p.group_id in ("
+    "     select g.id from vsf_group g, vsf_member m"
+    "       where g.id = m.group_id and m.user_id = ?)"
+    "   ) order by length(s.path) desc");
+
+  rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
+                          &check_file_stmt, &p_tail);
+  if (rc != SQLITE_OK)
+    die("vsf_db_check_file(): unable to prepare statement");
 
   /* Build the full path */
   str_getcwd(&path_str);
   str_append_text(&path_str, "/");
   str_append_str(&path_str, p_filename_str);
 
-  /* Get the column name of the permission */
-  get_perm_column(what, &what_str);
-
   /* Path */
-  rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&path_str), -1,
+  rc = sqlite3_bind_text(check_file_stmt, 1, str_getbuf(&path_str), -1,
                     SQLITE_STATIC);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
   /* User ID */
-  rc = sqlite3_bind_int(s_check_file_stmt, 2, p_sess->user_id);
+  rc = sqlite3_bind_int(check_file_stmt, 2, p_sess->user_id);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
   /* User ID again */
-  rc = sqlite3_bind_int(s_check_file_stmt, 3, p_sess->user_id);
+  rc = sqlite3_bind_int(check_file_stmt, 3, p_sess->user_id);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
@@ -546,7 +535,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   while (step)
   {
     /* Execute the statement */
-    rc = sqlite3_step(s_check_file_stmt);
+    rc = sqlite3_step(check_file_stmt);
 
     switch (rc)
     {
@@ -561,7 +550,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         break;
 
       case SQLITE_ROW:     /*A row is ready.*/
-        perm = sqlite3_column_int(s_check_file_stmt, 0);
+        perm = sqlite3_column_int(check_file_stmt, 0);
         switch (perm)
         {
           case 0:    /* Not set, inherited from parent */
@@ -596,6 +585,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
     }  /*switch*/
   }    /*while*/
 
+  sqlite3_finalize(check_file_stmt);
   str_free(&what_str);
   str_free(&sql_str);
   str_free(&path_str);
