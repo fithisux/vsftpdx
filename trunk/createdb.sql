@@ -44,7 +44,7 @@ create table vsf_user (
 -------------------------------------------------------------------------------
 create table vsf_group (
   id          integer  primary key,
-  name        text     not null
+  name        text     unique not null
 );
 
 -------------------------------------------------------------------------------
@@ -88,10 +88,8 @@ create table vsf_log (
 -- Log event
 -------------------------------------------------------------------------------
 create table vsf_event (
-  id    integer  not null,
-  name  text     not null,
-  
-  primary key (id, name)  
+  id    integer  primary key,
+  name  text     not null
 );
 
 
@@ -115,8 +113,8 @@ create table vsf_section (
   id         integer    primary key,
   path       text       not null,
   name       text       null,
-  ul_price   float      not null default 1.0,
-  dl_price   float      not null default 1.0
+  ul_price   float      null,
+  dl_price   float      null
 );
 
 -------------------------------------------------------------------------------
@@ -141,7 +139,9 @@ create table vsf_section_perm (
   d_list      integer    not null default 0,
   d_create    integer    not null default 0,
   d_delete    integer    not null default 0,
-  d_rename    integer    not null default 0
+  d_rename    integer    not null default 0,
+  
+  unique(section_id, user_id, group_id)
 );
 
 
@@ -168,4 +168,4 @@ insert into vsf_section(id, path, name) values (0, '/*', 'main');
 insert into vsf_section_perm(id, section_id, user_id, group_id,
   f_view, f_get, f_put, f_resume, f_delete, f_rename,
   d_view, d_change, d_list, d_create, d_delete, d_rename)
-  values(0, 0, 0, -1,   1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1);
+  values(0, 0, 0, null,   1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1);

@@ -55,6 +55,13 @@ vsf_access_check_file_visible(const struct vsf_session* p_sess,
                               const struct mystr* p_filename_str)
 {
   static struct mystr s_access_str;
+  
+  if (tunable_sqlite_enable)
+  {
+    /* Use the permissions from the database */
+    return vsf_db_check_file(p_sess, p_filename_str, kVSFFileView);
+  }
+  
 
   if (!tunable_hide_file)
   {

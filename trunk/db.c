@@ -422,74 +422,82 @@ vsf_db_check_remote_host(const struct mystr* p_remote_host)
 }
 
 
+static void 
+get_perm_column(enum EVSFFileAccess what, struct mystr* p_what_str)
+{
+  switch (what)
+  {
+  case kVSFFileView:
+    str_alloc_text(p_what_str, "f_view");
+    break;
+
+  case kVSFFileGet:
+    str_alloc_text(p_what_str, "f_get");
+    break;
+
+  case kVSFFilePut:
+    str_alloc_text(p_what_str, "f_put");
+    break;
+
+  case kVSFFileResume:
+    str_alloc_text(p_what_str, "f_resume");
+    break;
+
+  case kVSFFileDelete:
+    str_alloc_text(p_what_str, "f_delete");
+    break;
+
+  case kVSFFileRename:
+    str_alloc_text(p_what_str, "f_rename");
+    break;
+
+  case kVSFDirView:
+    str_alloc_text(p_what_str, "d_view");
+    break;
+
+  case kVSFDirList:
+    str_alloc_text(p_what_str, "d_list");
+    break;
+
+  case kVSFDirChange:
+    str_alloc_text(p_what_str, "d_change");
+    break;
+
+  case kVSFDirCreate:
+    str_alloc_text(p_what_str, "d_create");
+    break;
+
+  case kVSFDirDelete:
+    str_alloc_text(p_what_str, "d_delete");
+    break;
+
+  default:
+    bug("vsf_db_check_file(): invalid permission parameter");
+  }  
+}
+
 int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
                       enum EVSFFileAccess what)
 {
   struct mystr what_str = INIT_MYSTR;
+  struct mystr sql_str = INIT_MYSTR;
+  struct mystr path_str = INIT_MYSTR;
   int rc = 0;
   int busy_count = 0;
   int perm = 0;
   int final_perm = 0;
+  const char* p_tail = NULL;
 
-  struct mystr path_str = INIT_MYSTR;
+  /* Build the full path */
   str_getcwd(&path_str);
   str_append_text(&path_str, "/");
   str_append_str(&path_str, p_filename_str);
 
+  /* Get the column name of the permission */
+  get_perm_column(what, &what_str);
 
-  switch (what)
-  {
-  case kVSFFileView:
-    str_alloc_text(&what_str, "f_view");
-    break;
-
-  case kVSFFileGet:
-    str_alloc_text(&what_str, "f_get");
-    break;
-
-  case kVSFFilePut:
-    str_alloc_text(&what_str, "f_put");
-    break;
-
-  case kVSFFileResume:
-    str_alloc_text(&what_str, "f_resume");
-    break;
-
-  case kVSFFileDelete:
-    str_alloc_text(&what_str, "f_delete");
-    break;
-
-  case kVSFFileRename:
-    str_alloc_text(&what_str, "f_rename");
-    break;
-
-  case kVSFDirView:
-    str_alloc_text(&what_str, "d_view");
-    break;
-
-  case kVSFDirList:
-    str_alloc_text(&what_str, "d_list");
-    break;
-
-  case kVSFDirChange:
-    str_alloc_text(&what_str, "d_change");
-    break;
-
-  case kVSFDirCreate:
-    str_alloc_text(&what_str, "d_create");
-    break;
-
-  case kVSFDirDelete:
-    str_alloc_text(&what_str, "d_delete");
-    break;
-
-  default:
-    bug("vsf_db_check_file(): invalid permission parameter");
-  }
-
-
-  struct mystr sql_str = INIT_MYSTR;
+  /* Build the SQL statement */
   str_alloc_text(&sql_str, "select p.");
   str_append_str(&sql_str, &what_str);
   str_append_text(&sql_str,
@@ -500,10 +508,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
     "       where g.id = m.group_id and m.user_id = ?)"
     "   ) order by length(s.path) desc");
 
-
-
-  const char* p_tail = NULL;
-
+  /* Compile the SQL statement the first time it is used */
   if (s_check_file_stmt == NULL)
     rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
                        &s_check_file_stmt, &p_tail);
@@ -512,14 +517,6 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
 
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to prepare statement");
-
-  /* Permission */
-  /*
-  rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&what_str), -1,
-                    SQLITE_STATIC);
-  if (rc != SQLITE_OK)
-    die("vsf_db_check_file(): unable to bind parameter");
-  */
 
   /* Path */
   rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&path_str), -1,
@@ -537,13 +534,12 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
-
   /* Now we execute the SQL statement. Handle the possibility that
      sqlite is busy, but drop out after a number of attempts. */
   int step = 1;
   while (step)
   {
-    rc = sqlite3_step(s_check_file_stmt);
+    rc = sqlite3_step(s_check_file_stmt); /* Execute the statement */
 
     switch (rc)
     {
@@ -556,8 +552,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         vsf_sysutil_sleep(0);  /*For a gentler poll.*/
         break;
 
-      case SQLITE_DONE:    /*Success.*/
-        sqlite3_reset(s_check_file_stmt); /*Ready for next step.*/
+      case SQLITE_DONE:    /*Success, leave the loop */
         step = 0;
         break;
 
@@ -565,17 +560,16 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         perm = sqlite3_column_int(s_check_file_stmt, 0);
         switch (perm)
         {
-          case 0:
+          case 0:    /* Not set, inherited from parent */
             break;
 
-          case 1:
-            final_perm = 1; /* Allowed if no explicit deny is found */
+          case 1:    /* Implicit allow */
+            final_perm = 1;
             break;
 
-          case -1:
-            sqlite3_reset(s_check_file_stmt);
-            final_perm = 0; /* Access denied */
-            step = 0;       /* Abort loop */
+          case -1:   /* Explicit deny, abort loop on first occurrance */
+            final_perm = 0;
+            step = 0;
             break;
 
           default:
@@ -601,7 +595,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
     }  /*switch*/
   }    /*while*/
 
-
+  sqlite3_reset(s_check_file_stmt);
   str_free(&what_str);
   return final_perm;
 }

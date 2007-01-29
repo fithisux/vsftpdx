@@ -68,13 +68,20 @@ void vsf_db_cleanup();
  * PARAMETERS
  * p_remote_host   - the IP address of the remote host
  * RETURNS
- * 1 if the IP is valid, otherwhise 0
+ * 1 if the IP is valid, otherwhise 0.
  */
 int vsf_db_check_remote_host(const struct mystr* p_remote_host);
+
 
 /* vsf_db_check_file()
  * PURPOSE
  * Checks the access permissions for the given file or directory.
+ * PARAMETERS
+ * p_sess          - the current session
+ * p_filename_str  - the file or directory to check
+ * what            - the requested permission
+ * RETURNS
+ * 1 if the access is granted, otherwise 0.
  */
 int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
