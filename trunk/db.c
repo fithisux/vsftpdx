@@ -15,6 +15,7 @@
 #include "defs.h"
 #include "access.h"
 #include "sysstr.h"
+#include "md5.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -290,15 +291,27 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   struct mystr sql_str = INIT_MYSTR;
   struct mystr ident_str = INIT_MYSTR;
   struct mystr log_line_str = INIT_MYSTR;
+	md5_state_t state;
+	md5_byte_t digest[16];
+	char hex_output[16*2 + 1];
+	int di;
   
   if (str_isempty(p_user_str) || str_isempty(p_pass_str))
     return 0;
 
+  /* Calculate md5 hash of the password */
+	md5_init(&state);
+	md5_append(&state, (const md5_byte_t*) str_getbuf(p_pass_str), 
+             str_getlen(p_pass_str));
+	md5_finish(&state, digest);
+	for (di = 0; di < 16; ++di)
+	    sprintf(hex_output + di * 2, "%02x", digest[di]);
+    
   str_alloc_text(&sql_str,
     "select id from vsf_user where enabled = 1 and name = '");
   str_append_str(&sql_str, p_user_str);
   str_append_text(&sql_str, "' and password = '");
-  str_append_str(&sql_str, p_pass_str);  
+  str_append_text(&sql_str, hex_output);
   str_append_text(&sql_str, "'");
 
   const char* sqlbuf = str_getbuf(&sql_str);
@@ -319,7 +332,7 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   /* Set the user ID */
   p_sess->user_id = uid;
     
-  /* ip check */
+  /* IP check */
   str_alloc_text(&sql_str, "select count(*) from vsf_ipmask where user_id = ");
   str_append_ulong(&sql_str, uid);
   str_append_text(&sql_str, " and '");

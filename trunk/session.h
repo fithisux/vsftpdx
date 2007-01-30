@@ -100,6 +100,9 @@ struct vsf_session
   int id;
   /* User ID (only used with SQLite) */
   int user_id;
+  
+  /* The encrypted password */
+  struct mystr pass_str;
 
   unsigned long crc;
   unsigned long crc2;
