@@ -23,6 +23,7 @@
 #define MAX_BUSY_TRIES 10
 
 static sqlite3* s_db_handle = NULL;
+static sqlite3_stmt* s_check_file_stmt = NULL;
 
 static int
 cb_auth(void* param, int argc, char **argv, char **colnames)
@@ -277,6 +278,8 @@ vsf_db_del_session(const struct vsf_session* p_sess)
 void
 vsf_db_close()
 {
+  if (s_check_file_stmt != NULL)
+    sqlite3_finalize(s_check_file_stmt);
   sqlite3_close(s_db_handle);
 }
 
@@ -434,92 +437,37 @@ vsf_db_check_remote_host(const struct mystr* p_remote_host)
 }
 
 
-static void 
-get_perm_column(enum EVSFFileAccess what, struct mystr* p_what_str)
-{
-  switch (what)
-  {
-  case kVSFFileView:
-    str_alloc_text(p_what_str, "f_view");
-    break;
-
-  case kVSFFileGet:
-    str_alloc_text(p_what_str, "f_get");
-    break;
-
-  case kVSFFilePut:
-    str_alloc_text(p_what_str, "f_put");
-    break;
-
-  case kVSFFileResume:
-    str_alloc_text(p_what_str, "f_resume");
-    break;
-
-  case kVSFFileDelete:
-    str_alloc_text(p_what_str, "f_delete");
-    break;
-
-  case kVSFFileRename:
-    str_alloc_text(p_what_str, "f_rename");
-    break;
-
-  case kVSFDirView:
-    str_alloc_text(p_what_str, "d_view");
-    break;
-
-  case kVSFDirList:
-    str_alloc_text(p_what_str, "d_list");
-    break;
-
-  case kVSFDirChange:
-    str_alloc_text(p_what_str, "d_change");
-    break;
-
-  case kVSFDirCreate:
-    str_alloc_text(p_what_str, "d_create");
-    break;
-
-  case kVSFDirDelete:
-    str_alloc_text(p_what_str, "d_delete");
-    break;
-
-  default:
-    bug("vsf_db_check_file(): invalid permission parameter");
-  }  
-}
-
 int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
                       enum EVSFFileAccess what)
 {
-  static sqlite3_stmt* check_file_stmt = NULL;
-  static struct mystr what_str = INIT_MYSTR;
   static struct mystr sql_str = INIT_MYSTR;
   static struct mystr path_str = INIT_MYSTR;
   int rc = 0;
   int busy_count = 0;
   int perm = 0;
   int final_perm = 0;
+  int col = 0;
   const char* p_tail = NULL;
 
-  /* Get the column name of the permission */
-  get_perm_column(what, &what_str);
-
-  /* Build the SQL statement */
-  str_alloc_text(&sql_str, "select p.");
-  str_append_str(&sql_str, &what_str);
-  str_append_text(&sql_str,
-    " from vsf_section s, vsf_section_perm p"
-    " where s.id = p.section_id and ? glob s.path and"
-    "   (p.user_id = ? or p.group_id in ("
-    "     select g.id from vsf_group g, vsf_member m"
-    "       where g.id = m.group_id and m.user_id = ?)"
-    "   ) order by length(s.path) desc");
-
-  rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
-                          &check_file_stmt, &p_tail);
-  if (rc != SQLITE_OK)
-    die("vsf_db_check_file(): unable to prepare statement");
+  if (s_check_file_stmt == NULL)
+  {
+    /* Build the SQL statement */
+    str_alloc_text(&sql_str, 
+      "select f_view, f_get, f_put, f_resume, f_delete, f_rename"
+      "  d_view, d_change, d_list, d_create, d_delete, d_rename "
+      " from vsf_section s, vsf_section_perm p"
+      " where s.id = p.section_id and ? glob s.path and"
+      "   (p.user_id = ? or p.group_id in ("
+      "     select g.id from vsf_group g, vsf_member m"
+      "       where g.id = m.group_id and m.user_id = ?)"
+      "   ) order by length(s.path) desc");
+  
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
+                            &s_check_file_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+      die("vsf_db_check_file(): unable to prepare statement");
+  }
 
   /* Build the full path */
   str_getcwd(&path_str);
@@ -527,18 +475,18 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   str_append_str(&path_str, p_filename_str);
 
   /* Path */
-  rc = sqlite3_bind_text(check_file_stmt, 1, str_getbuf(&path_str), -1,
+  rc = sqlite3_bind_text(s_check_file_stmt, 1, str_getbuf(&path_str), -1,
                     SQLITE_STATIC);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
   /* User ID */
-  rc = sqlite3_bind_int(check_file_stmt, 2, p_sess->user_id);
+  rc = sqlite3_bind_int(s_check_file_stmt, 2, p_sess->user_id);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
   /* User ID again */
-  rc = sqlite3_bind_int(check_file_stmt, 3, p_sess->user_id);
+  rc = sqlite3_bind_int(s_check_file_stmt, 3, p_sess->user_id);
   if (rc != SQLITE_OK)
     die("vsf_db_check_file(): unable to bind parameter");
 
@@ -548,7 +496,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   while (step)
   {
     /* Execute the statement */
-    rc = sqlite3_step(check_file_stmt);
+    rc = sqlite3_step(s_check_file_stmt);
 
     switch (rc)
     {
@@ -563,7 +511,27 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         break;
 
       case SQLITE_ROW:     /*A row is ready.*/
-        perm = sqlite3_column_int(check_file_stmt, 0);
+        /* Make sure the column order in the SQL statement is the same! */
+        switch (what)
+        {
+          case kVSFFileView:   col = 0;  break;
+          case kVSFFileGet:    col = 1;  break;
+          case kVSFFilePut:    col = 2;  break;
+          case kVSFFileResume: col = 3;  break;
+          case kVSFFileDelete: col = 4;  break;
+          case kVSFFileRename: col = 5;  break;          
+          case kVSFDirView:    col = 6;  break;
+          case kVSFDirChange:  col = 7;  break;
+          case kVSFDirList:    col = 8;  break;
+          case kVSFDirCreate:  col = 9;  break;
+          case kVSFDirDelete:  col = 10; break;        
+          
+          case kVSFFileChmod:
+            sqlite3_reset(s_check_file_stmt);
+            return 0;
+        }
+
+        perm = sqlite3_column_int(s_check_file_stmt, col);
         switch (perm)
         {
           case 0:    /* Not set, inherited from parent */
@@ -598,8 +566,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
     }  /*switch*/
   }    /*while*/
 
-  sqlite3_finalize(check_file_stmt);
-  str_free(&what_str);
+  sqlite3_reset(s_check_file_stmt);
   str_free(&sql_str);
   str_free(&path_str);
   return final_perm;

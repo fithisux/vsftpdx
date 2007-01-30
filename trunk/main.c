@@ -129,7 +129,8 @@ main(int argc, const char* argv[])
   {
     if (tunable_sqlite_log ||
         tunable_ident_check_enable ||
-        tunable_stealth_mode)
+        tunable_stealth_mode ||
+        tunable_sqlite_acl)
     {
       die("vsftpd: some of your config options require sqlite_enable=YES.");
     }

@@ -104,6 +104,7 @@ parseconf_bool_array[] =
   { "calc_crc32", &tunable_calc_crc32 },
   { "ident_check_enable", &tunable_ident_check_enable },
   { "stealth_mode", &tunable_stealth_mode },
+  { "sqlite_acl", &tunable_sqlite_acl },
   { 0, 0 }
 };
 
