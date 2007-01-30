@@ -292,8 +292,8 @@ vsf_sysdep_check_auth(struct vsf_session* p_sess,
   #ifdef __CYGWIN__
   if (is_winnt)
   {
-    HANDLE token = cygwin_logon_user (p_pwd, str_getbuf(p_pass_str));
-    cygwin_set_impersonation_token (token);
+    HANDLE token = cygwin_logon_user(p_pwd, str_getbuf(p_pass_str));
+    cygwin_set_impersonation_token(token);
     return token != INVALID_HANDLE_VALUE;
   }
   #endif  

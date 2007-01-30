@@ -70,6 +70,8 @@ main(int argc, const char* argv[])
     -1,
     /* User ID */
     -1,
+    /* Password */
+    INIT_MYSTR,
     /* CRC32 checksums */
     0x0,
     0x0

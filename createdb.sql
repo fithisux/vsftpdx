@@ -159,8 +159,10 @@ insert into vsf_event(id, name) values(11, 'rmdir');
 insert into vsf_event(id, name) values(12, 'chmod');
 
 
--- Default user
-insert into vsf_user(id, name, password) values (0, 'root', 'vsftpd');
+-- Default user (password: vsftpd)
+insert into vsf_user(id, name, password) 
+  values (0, 'root', 'e718bb06578de16d11e7dde43c58cb47');
+
 insert into vsf_group(id, name) values (0, 'siteops');
 insert into vsf_member(user_id, group_id) values (0, 0);
 insert into vsf_ipmask(id, user_id, mask) values (0, 0, '127.0.0.1');
