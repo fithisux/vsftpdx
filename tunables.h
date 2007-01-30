@@ -72,6 +72,7 @@ extern int tunable_sqlite_log;                /* Use SQLite for logging */
 extern int tunable_calc_crc32;                /* Calc CRC32 during transfer */
 extern int tunable_ident_check_enable;        /* Check RFC1413 idents */
 extern int tunable_stealth_mode;              /* Hide if remote IP is unknown */
+extern int tunable_sqlite_acl;                /* Use access control lists */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;
