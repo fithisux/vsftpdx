@@ -58,6 +58,8 @@ static void handle_site_umask(struct vsf_session* p_sess,
                               struct mystr* p_arg_str);
 static void handle_site_who(struct vsf_session* p_sess,
                             struct mystr* p_arg_str);
+static void handle_site_passwd(struct vsf_session* p_sess,
+                            struct mystr* p_arg_str);                            
 static void handle_eprt(struct vsf_session* p_sess);
 static void handle_help(struct vsf_session* p_sess);
 static void handle_stou(struct vsf_session* p_sess);
@@ -157,14 +159,12 @@ process_post_login(struct vsf_session* p_sess)
     {
       vsf_cmdio_write(p_sess, FTP_GOODBYE, "Goodbye.");
       
-      #ifdef VSF_BUILD_SQLITE
       /* Close the database */      
       if (tunable_sqlite_enable)
       {
         vsf_db_del_session(p_sess);
         vsf_db_close(p_sess);
       }
-      #endif
       
       vsf_sysutil_exit(0);
     }
@@ -1439,27 +1439,37 @@ handle_site(struct vsf_session* p_sess)
   /* What SITE sub-command is it? */
   str_split_char(&p_sess->ftp_arg_str, &s_site_args_str, ' ');
   str_upper(&p_sess->ftp_arg_str);
-  if (tunable_write_enable &&
-      tunable_chmod_enable &&
+
+  /* CHMOD */
+  if (tunable_write_enable && 
+      tunable_chmod_enable && 
+      !tunable_sqlite_acl &&
       str_equal_text(&p_sess->ftp_arg_str, "CHMOD"))
   {
     handle_site_chmod(p_sess, &s_site_args_str);
   }
+  /* UMASK */
   else if (str_equal_text(&p_sess->ftp_arg_str, "UMASK"))
   {
     handle_site_umask(p_sess, &s_site_args_str);
   }
+  /* HELP */
   else if (str_equal_text(&p_sess->ftp_arg_str, "HELP"))
   {
-    vsf_cmdio_write(p_sess, FTP_SITEHELP, "CHMOD UMASK HELP");
+    vsf_cmdio_write(p_sess, FTP_SITEHELP, "CHMOD UMASK HELP WHO");
   }
-  #ifdef VSF_BUILD_SQLITE
+  /* PASSWD */
   else if (tunable_sqlite_enable &&
-           str_equal_text(&p_sess->ftp_arg_str, "WHO"))
+    str_equal_text(&p_sess->ftp_arg_str, "PASSWD")) 
   {
-    handle_site_who(p_sess, &s_site_args_str);
+    handle_site_passwd(p_sess, &s_site_args_str);
+  }    
+  /* WHO */
+  else if (tunable_sqlite_enable &&
+    str_equal_text(&p_sess->ftp_arg_str, "WHO")) 
+  {
+      handle_site_who(p_sess, &s_site_args_str);
   }
-  #endif
   else
   {
     vsf_cmdio_write(p_sess, FTP_BADCMD, "Unknown SITE command.");
@@ -1531,7 +1541,6 @@ handle_site_umask(struct vsf_session* p_sess, struct mystr* p_arg_str)
   vsf_cmdio_write_str(p_sess, FTP_UMASKOK, &s_umask_resp_str);
 }
 
-#ifdef VSF_BUILD_SQLITE
 static void
 handle_site_who(struct vsf_session* p_sess, struct mystr* p_arg_str)
 {
@@ -1542,7 +1551,54 @@ handle_site_who(struct vsf_session* p_sess, struct mystr* p_arg_str)
   str_free(&who_str);
   vsf_cmdio_write(p_sess, FTP_SITEHELP, "");
 }
-#endif
+
+static void
+handle_site_passwd(struct vsf_session* p_sess, struct mystr* p_arg_str)
+{
+  static struct mystr s_user_str;
+  static struct mystr s_pass_str;
+  int rc = 0;
+  
+  if (str_isempty(p_arg_str))
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD, 
+      "Syntax: SITE PASSWD [<user>] <password>");
+    return;
+  }
+  
+  str_split_char(p_arg_str, &s_pass_str, ' ');
+  if (str_isempty(&s_pass_str))
+  {
+    /* No user was specified */
+    str_copy(&s_user_str, &p_sess->user_str);
+    str_copy(&s_pass_str, p_arg_str);
+  }
+  else
+  {
+    /* A user was specified */
+    str_copy(&s_user_str, p_arg_str);
+  }
+  
+  if (str_getlen(&s_user_str) > VSFTP_USERNAME_MAX)
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD, "Username too long");
+    return;
+  }
+  
+  if (str_getlen(&s_pass_str) > VSFTP_PASSWORD_MAX)
+  {
+    vsf_cmdio_write(p_sess, FTP_BADCMD, "Password too long");
+    return;  
+  }
+  
+  /* Change the password in the database */
+  rc = vsf_db_change_password(p_sess, &s_user_str, &s_pass_str);
+  if (rc)
+    vsf_cmdio_write(p_sess, FTP_SITEHELP, "Password changed.");  
+  else
+    vsf_cmdio_write(p_sess, FTP_BADOPTS, "Unable to change password.");  
+}
+
 
 static void
 handle_appe(struct vsf_session* p_sess)

@@ -594,8 +594,7 @@ do_file_recv(struct vsf_session* p_sess, int file_fd, int is_ascii)
     
     if (tunable_calc_crc32)
     {
-      ret_struct.crc = vsf_calc_crc32(ret_struct.crc, p_writebuf,
-                                        num_to_write);
+      ret_struct.crc = vsf_crc32_calc(ret_struct.crc, p_writebuf, num_to_write);
       if (block == 0)
         ret_struct.crc2 = ret_struct.crc;
     }

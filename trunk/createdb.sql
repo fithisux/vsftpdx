@@ -112,6 +112,7 @@ create table vsf_session (
 create table vsf_section (
   id         integer    primary key,
   path       text       not null,
+  priority   integer    not null default 0,
   name       text       null,
   ul_price   float      null,
   dl_price   float      null

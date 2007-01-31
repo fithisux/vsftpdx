@@ -52,13 +52,39 @@ int vsf_db_check_auth(struct vsf_session* p_sess,
 void vsf_db_log(struct vsf_session* p_sess, int succeeded,
                 enum EVSFLogEntryType what, const struct mystr* p_str);
 
+/* vsf_db_get_session_list()
+ * PURPOSE
+ * Returns the list of active sessions (connected clients) as a string.
+ * PARAMETERS
+ * p_str        - The result string containing the session list on success.
+ */
 void vsf_db_get_session_list(struct mystr* p_str);
 
+
+/* Vsf_db_add_session()
+ * PURPOSE
+ * Adds a new entry to the session table.
+ * PARAMETERS
+ * p_sess       - The session
+ */
 void vsf_db_add_session(struct vsf_session* p_sess);
 
+
+/* vsf_db_del_session()
+ * PURPOSE
+ * Deletes an existing session from the database.
+ * PARAMETERS
+ * p_sess        - The session
+ */
 void vsf_db_del_session(struct vsf_session* p_sess);
 
+
+/* vsf_db_cleanup()
+ * PURPOSE
+ * Deletes temporary data from the database. Cleaned tables: vsf_session.
+ */
 void vsf_db_cleanup();
+
 
 /* vsf_db_check_remote_host()
  * PURPOSE
@@ -86,5 +112,9 @@ int vsf_db_check_remote_host(const struct mystr* p_remote_host);
 int vsf_db_check_file(const struct vsf_session* p_sess,
                       const struct mystr* p_filename_str,
                       enum EVSFFileAccess what);
-                      
+
+
+int vsf_db_change_password(const struct vsf_session* p_sess,
+                           const struct mystr* p_user_str,
+                           const struct mystr* p_pass_str);
 #endif /* VSF_DB_H */

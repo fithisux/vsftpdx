@@ -9,6 +9,8 @@
 #include "sysutil.h"
 #include "str.h"
 #include "defs.h"
+#include "db.h"
+#include "tunables.h"
 
 #define DIE_DEBUG
 
@@ -18,6 +20,10 @@ die(const char* p_text)
 #ifdef DIE_DEBUG
   bug(p_text);
 #endif
+
+  if (tunable_sqlite_enable)
+    vsf_db_close();
+
   vsf_sysutil_exit(1);
 }
 
