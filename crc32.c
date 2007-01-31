@@ -46,7 +46,7 @@ static const long crc32_table[256] = {
 };
 
 unsigned long
-vsf_calc_crc32(unsigned long lastcrc, const void* buf, int count)
+vsf_crc32_calc(unsigned long lastcrc, const void* buf, int count)
 {
   const unsigned char *p = buf;
   unsigned long crc = ~lastcrc;

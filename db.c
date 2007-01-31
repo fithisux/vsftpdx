@@ -113,10 +113,28 @@ update_last_login(int uid)
   }
 }
 
+static void
+calc_md5(const struct mystr* p_data_str, struct mystr* p_hash_str)
+{
+	md5_state_t state;
+	md5_byte_t digest[16];
+	char hex_output[16*2 + 1];
+	int di;
+
+  /* Calculate md5 hash of the password */
+	md5_init(&state);
+	md5_append(&state, (const md5_byte_t*) str_getbuf(p_data_str), 
+             str_getlen(p_data_str));
+	md5_finish(&state, digest);
+	for (di = 0; di < 16; ++di)
+	    sprintf(hex_output + di * 2, "%02x", digest[di]);  
+	str_alloc_text(p_hash_str, hex_output);
+}
+
 void
 vsf_db_open()
 { 
-  int rc = sqlite3_open(VFS_DB_FILENAME, &s_db_handle);
+  int rc = sqlite3_open(VSFTP_DB_FILENAME, &s_db_handle);
   if (rc)
   {
     sqlite3_close(s_db_handle);
@@ -294,27 +312,19 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   struct mystr sql_str = INIT_MYSTR;
   struct mystr ident_str = INIT_MYSTR;
   struct mystr log_line_str = INIT_MYSTR;
-	md5_state_t state;
-	md5_byte_t digest[16];
-	char hex_output[16*2 + 1];
-	int di;
+  struct mystr hash_str = INIT_MYSTR;
   
   if (str_isempty(p_user_str) || str_isempty(p_pass_str))
     return 0;
 
   /* Calculate md5 hash of the password */
-	md5_init(&state);
-	md5_append(&state, (const md5_byte_t*) str_getbuf(p_pass_str), 
-             str_getlen(p_pass_str));
-	md5_finish(&state, digest);
-	for (di = 0; di < 16; ++di)
-	    sprintf(hex_output + di * 2, "%02x", digest[di]);
+  calc_md5(p_pass_str, &hash_str);
     
   str_alloc_text(&sql_str,
     "select id from vsf_user where enabled = 1 and name = '");
   str_append_str(&sql_str, p_user_str);
   str_append_text(&sql_str, "' and password = '");
-  str_append_text(&sql_str, hex_output);
+  str_append_str(&sql_str, &hash_str);
   str_append_text(&sql_str, "'");
 
   const char* sqlbuf = str_getbuf(&sql_str);
@@ -461,7 +471,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
       "   (p.user_id = ? or p.group_id in ("
       "     select g.id from vsf_group g, vsf_member m"
       "       where g.id = m.group_id and m.user_id = ?)"
-      "   ) order by length(s.path) desc");
+      "   ) order by s.priority desc, length(s.path) desc");
   
     rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1,
                             &s_check_file_stmt, &p_tail);
@@ -527,7 +537,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
           case kVSFDirDelete:  col = 10; break;        
           
           case kVSFFileChmod:
-            sqlite3_reset(s_check_file_stmt);
+            bug("vsf_db_check_file(): chmod is not a valid acl permission");
             return 0;
         }
 
@@ -571,5 +581,79 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   str_free(&path_str);
   return final_perm;
 }
+
+
+int vsf_db_change_password(const struct vsf_session* p_sess,
+                           const struct mystr* p_user_str,
+                           const struct mystr* p_pass_str)
+{ 
+  (void) p_sess;
+
+  static struct mystr hash_str = INIT_MYSTR;
+  static struct mystr sql_str = INIT_MYSTR;
+  sqlite3_stmt* p_stmt = NULL;
+  int rc;
+  const char* p_tail = NULL;
+  int busy_count = 0;
+
+  /* Calculate a MD5 hash */
+  calc_md5(p_pass_str, &hash_str);
+  
+  str_alloc_text(&sql_str, "update vsf_user set password = ? where name = ?");
+  rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                          &p_stmt, &p_tail);
+  if (rc != SQLITE_OK)
+      die("vsf_db_change_password(): unable to prepare statement");
+      
+  /* Password */
+  rc = sqlite3_bind_text(p_stmt, 1, str_getbuf(&hash_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_change_password(): unable to bind parameter");
+
+  /* Username */
+  rc = sqlite3_bind_text(p_stmt, 2, str_getbuf(p_user_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_change_password(): unable to bind parameter");
+  
+  /* Now we execute the SQL statement. Handle the possibility that
+     sqlite is busy, but drop out after a number of attempts. */
+  int step = 1;
+  while (step)
+  {
+    rc = sqlite3_step(p_stmt);
+
+    switch (rc)
+    {
+      case SQLITE_BUSY:    /*We must try again, but not forever.*/
+        if (busy_count++ > MAX_BUSY_TRIES)
+          die("vsf_db_check_file(): db locked");
+        vsf_sysutil_sleep(0);  /*For a gentler poll.*/
+        break;
+
+      case SQLITE_DONE:    /*Success, leave the loop */
+        step = 0;
+        break;
+
+      case SQLITE_ROW:     /*A row is ready.*/
+        break;
+
+      case SQLITE_ERROR:   /*Run time error, discard the VM.*/
+   		  die2("vsf_db_check_file(): sqlite error ",
+             sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
+        break;
+
+      case SQLITE_MISUSE:  /*VM should not have been used.*/
+    		die("vsf_db_check_file(): sqlite misuse");  /*Fatal DB Error.*/
+        break;
+
+      default:
+        die("vsf_db_check_file(): unexpected result");  /*Fatal DB Error.*/
+        break;
+    }  /*switch*/
+  }    /*while*/
+
+  sqlite3_finalize(p_stmt); 
+  return sqlite3_changes(s_db_handle);
+}                           
 
 #endif

@@ -18,7 +18,7 @@
 /* Must be greater than both VSFTP_MAX_COMMAND_LINE and VSFTP_DIR_BUFSIZE */
 #define VSFTP_PRIVSOCK_MAXSTR   VSFTP_DIR_BUFSIZE
 
-#define VFS_DB_FILENAME         "site.db"
+#define VSFTP_DB_FILENAME         "site.db"
 
 #endif /* VSF_DEFS_H */
 
