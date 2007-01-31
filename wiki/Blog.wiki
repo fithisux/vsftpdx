@@ -1,0 +1,6 @@
+#summary Development diary
+#labels Featured
+
+===2007-01-30===
+  * Added MD5 encryption for passwords.
+  * Started the blog.
