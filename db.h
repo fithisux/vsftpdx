@@ -117,4 +117,13 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
 int vsf_db_change_password(const struct vsf_session* p_sess,
                            const struct mystr* p_user_str,
                            const struct mystr* p_pass_str);
+                                                                      
+int vsf_db_check_credit(const struct vsf_sesion* p_sess, 
+                        const struct mystr* p_filename_str
+                        double amount);
+                        
+int vsf_db_update_credit(const struct vsf_session* p_sess, 
+                         const struct mystr* p_filename_str
+                         double amount);
+                           
 #endif /* VSF_DB_H */

@@ -110,12 +110,13 @@ create table vsf_session (
 -- glob and all missing settings are inherited from the parent.
 -------------------------------------------------------------------------------
 create table vsf_section (
-  id         integer    primary key,
-  path       text       not null,
-  priority   integer    not null default 0,
-  name       text       null,
-  ul_price   float      null,
-  dl_price   float      null
+  id             integer    primary key,
+  path           text       not null,
+  priority       integer    not null default 0,
+  name           text       null,
+  credit_section integer    not null default 0,
+  ul_price       float      not null default 1.0,
+  dl_price       float      not null default 1.0
 );
 
 -------------------------------------------------------------------------------
@@ -143,6 +144,16 @@ create table vsf_section_perm (
   d_rename    integer    not null default 0,
   
   unique(section_id, user_id, group_id)
+);
+
+
+create table vsf_credit (
+  id              integer    primary key,
+  user_id         integer    not null,
+  credit_section  integer    not null,
+  credit          float      not null default 0.0,
+  
+  unique(user_id, credit_section)
 );
 
 

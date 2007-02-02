@@ -654,6 +654,49 @@ int vsf_db_change_password(const struct vsf_session* p_sess,
 
   sqlite3_finalize(p_stmt); 
   return sqlite3_changes(s_db_handle);
-}                           
+}     
+
+
+int 
+vsf_db_check_credit(const struct vsf_session* p_sess, double amount,
+                    const struct mystr* p_filename_str)
+{
+  static struct mystr sql_str = INIT_MYSTR;
+  str_alloc_text(&sql_str, 
+    "select credit from vsf_credit"
+    "  where user_id = ? and credit_section = ("
+    "    select credit_section from vsf_section where ? glob path"
+    "      order by priority desc, length(path) desc"
+    "      limit 1");
+    
+  /* Param 1 - User ID */
+    
+  /* Param 2 - Filename */
+
+  return 0;
+}
+                        
+int 
+vsf_db_update_credit(const struct vsf_session* p_sess, double amount,
+                     const struct mystr* p_filename_str)
+{
+  static struct mystr sql_str = INIT_MYSTR;
+  str_alloc_text(&sql_str, 
+    "replace into vsf_credit (user_id, credit, credit_section)"
+    "  values (?, ?, ("
+    "    select credit_section from vsf_section"
+    "      where ? glob path"
+    "      order by priority desc, length(path) desc"
+    "      limit 1))");
+  
+  /* Param 1 - User ID */
+  
+  /* Param 2 - Credit amount */
+  
+  /* Param 3 - Filename */
+  
+  return 0;
+}
+                      
 
 #endif
