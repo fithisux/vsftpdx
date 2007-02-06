@@ -105,6 +105,7 @@ parseconf_bool_array[] =
   { "ident_check_enable", &tunable_ident_check_enable },
   { "stealth_mode", &tunable_stealth_mode },
   { "sqlite_acl", &tunable_sqlite_acl },
+  { "credit_enable", &tunable_credit_enable },
   { 0, 0 }
 };
 

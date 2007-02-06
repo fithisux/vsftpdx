@@ -13,6 +13,7 @@ drop table if exists vsf_event;
 drop table if exists vsf_session;
 drop table if exists vsf_section;
 drop table if exists vsf_section_perm;
+drop table if exists vsf_credit;  
 
 -------------------------------------------------------------------------------
 -- Meta data
@@ -32,6 +33,8 @@ create table vsf_user (
   name           text     unique not null,
   password       text     null,
   enabled        integer  not null default 1,
+  ul_price       double   not null default 0.0,
+  dl_price       double   not null default 0.0,
   c_time         text     default current_timestamp,
   c_user         text     default 'system',
   m_time         text     default current_timestamp,
@@ -148,12 +151,11 @@ create table vsf_section_perm (
 
 
 create table vsf_credit (
-  id              integer    primary key,
-  user_id         integer    not null,
-  credit_section  integer    not null,
+  user_id         integer    not null default 0,
+  credit_section  integer    not null default 0,
   credit          float      not null default 0.0,
   
-  unique(user_id, credit_section)
+  primary key(user_id, credit_section)
 );
 
 

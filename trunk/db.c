@@ -24,6 +24,12 @@
 
 static sqlite3* s_db_handle = NULL;
 static sqlite3_stmt* s_check_file_stmt = NULL;
+static sqlite3_stmt* s_get_credit_stmt = NULL;
+static sqlite3_stmt* s_update_credit_stmt = NULL;
+static sqlite3_stmt* s_get_credit_section_stmt = NULL;
+static sqlite3_stmt* s_get_ratio_stmt = NULL;
+static int s_busy_count = 0;
+static int s_step = 1;
 
 static int
 cb_auth(void* param, int argc, char **argv, char **colnames)
@@ -53,6 +59,31 @@ cb_ipcheck(void* param, int argc, char **argv, char **colnames)
   *valid = atoi(s) > 0 ? 1 : 0;
 
   return 0;
+}
+
+
+static void
+handle_result(int rc, const char* func_name)
+{
+  switch (rc)
+  {
+    case SQLITE_BUSY:    /*We must try again, but not forever.*/
+      if (s_busy_count++ > MAX_BUSY_TRIES)
+        die2(func_name, "(): database locked");
+      vsf_sysutil_sleep(0);  /*For a gentler poll.*/
+      break;
+
+    case SQLITE_DONE:    /*Success, leave the loop */
+      s_step = 0;
+      break;
+
+    case SQLITE_ROW:     /*A row is ready.*/
+      break;
+
+    default:
+ 		  die2(func_name, sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
+      break;
+  }
 }
 
 static int
@@ -107,7 +138,6 @@ update_last_login(int uid)
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
@@ -137,7 +167,6 @@ vsf_db_open()
   int rc = sqlite3_open(VSFTP_DB_FILENAME, &s_db_handle);
   if (rc)
   {
-    sqlite3_close(s_db_handle);
     die2("unable to open sqlite database: ", 
       sqlite3_errmsg(s_db_handle));
   }  
@@ -206,7 +235,6 @@ vsf_db_log(struct vsf_session* p_sess,
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }    
@@ -231,7 +259,6 @@ vsf_db_get_session_list(struct mystr* p_str)
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
     return;
@@ -260,7 +287,6 @@ vsf_db_add_session(struct vsf_session* p_sess)
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
@@ -286,7 +312,6 @@ vsf_db_del_session(const struct vsf_session* p_sess)
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
     /* sqlite3_free(sql_err); */
   }
@@ -298,6 +323,13 @@ vsf_db_close()
 {
   if (s_check_file_stmt != NULL)
     sqlite3_finalize(s_check_file_stmt);
+  if (s_get_credit_stmt != NULL)
+    sqlite3_finalize(s_get_credit_stmt);
+  if (s_update_credit_stmt != NULL)
+    sqlite3_finalize(s_update_credit_stmt);
+  if (s_get_credit_section_stmt != NULL)
+    sqlite3_finalize(s_get_credit_section_stmt);
+    
   sqlite3_close(s_db_handle);
 }
 
@@ -333,9 +365,7 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
-    /* sqlite3_free(sql_err); */
     return 0;
   }
 
@@ -384,9 +414,7 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err);
-    /* sqlite3_free(sql_err); */
     return 0;
   }
   
@@ -413,9 +441,7 @@ vsf_db_cleanup()
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
-    /* sqlite3_free(sql_err); */
   }  
 }
 
@@ -437,9 +463,7 @@ vsf_db_check_remote_host(const struct mystr* p_remote_host)
   str_free(&sql_str);
   if (rc != SQLITE_OK)
   {
-    sqlite3_close(s_db_handle);
     die2("sql error: ", sql_err); /* Exit */
-    /* sqlite3_free(sql_err); */
     return 0;
   }
 
@@ -454,11 +478,12 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
   static struct mystr sql_str = INIT_MYSTR;
   static struct mystr path_str = INIT_MYSTR;
   int rc = 0;
-  int busy_count = 0;
   int perm = 0;
   int final_perm = 0;
   int col = 0;
   const char* p_tail = NULL;
+
+  s_busy_count = 0; /* Reset busy count */
 
   if (s_check_file_stmt == NULL)
   {
@@ -502,24 +527,14 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
 
   /* Now we execute the SQL statement. Handle the possibility that
      sqlite is busy, but drop out after a number of attempts. */
-  int step = 1;
-  while (step)
+  s_step = 1;
+  while (s_step)
   {
     /* Execute the statement */
     rc = sqlite3_step(s_check_file_stmt);
 
     switch (rc)
     {
-      case SQLITE_BUSY:    /*We must try again, but not forever.*/
-        if (busy_count++ > MAX_BUSY_TRIES)
-          die("vsf_db_check_file(): db locked");
-        vsf_sysutil_sleep(0);  /*For a gentler poll.*/
-        break;
-
-      case SQLITE_DONE:    /*Success, leave the loop */
-        step = 0;
-        break;
-
       case SQLITE_ROW:     /*A row is ready.*/
         /* Make sure the column order in the SQL statement is the same! */
         switch (what)
@@ -553,7 +568,7 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
 
           case -1:   /* Explicit deny, abort loop on first occurrance */
             final_perm = 0;
-            step = 0;
+            s_step = 0;
             break;
 
           default:
@@ -561,17 +576,8 @@ int vsf_db_check_file(const struct vsf_session* p_sess,
         }
         break;
 
-      case SQLITE_ERROR:   /*Run time error, discard the VM.*/
-   		  die2("vsf_db_check_file(): sqlite error ",
-             sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
-        break;
-
-      case SQLITE_MISUSE:  /*VM should not have been used.*/
-    		die("vsf_db_check_file(): sqlite misuse");  /*Fatal DB Error.*/
-        break;
-
-      default:
-        die("vsf_db_check_file(): unexpected result");  /*Fatal DB Error.*/
+      default:  /* All other results */
+        handle_result(rc, "vsf_db_check_file");
         break;
     }  /*switch*/
   }    /*while*/
@@ -594,7 +600,8 @@ int vsf_db_change_password(const struct vsf_session* p_sess,
   sqlite3_stmt* p_stmt = NULL;
   int rc;
   const char* p_tail = NULL;
-  int busy_count = 0;
+
+  s_busy_count = 0; /* Reset busy count */
 
   /* Calculate a MD5 hash */
   calc_md5(p_pass_str, &hash_str);
@@ -617,86 +624,259 @@ int vsf_db_change_password(const struct vsf_session* p_sess,
   
   /* Now we execute the SQL statement. Handle the possibility that
      sqlite is busy, but drop out after a number of attempts. */
-  int step = 1;
-  while (step)
+  s_step = 1;
+  while (s_step)
   {
     rc = sqlite3_step(p_stmt);
-
-    switch (rc)
-    {
-      case SQLITE_BUSY:    /*We must try again, but not forever.*/
-        if (busy_count++ > MAX_BUSY_TRIES)
-          die("vsf_db_check_file(): db locked");
-        vsf_sysutil_sleep(0);  /*For a gentler poll.*/
-        break;
-
-      case SQLITE_DONE:    /*Success, leave the loop */
-        step = 0;
-        break;
-
-      case SQLITE_ROW:     /*A row is ready.*/
-        break;
-
-      case SQLITE_ERROR:   /*Run time error, discard the VM.*/
-   		  die2("vsf_db_check_file(): sqlite error ",
-             sqlite3_errmsg(s_db_handle));  /*Fatal DB Error.*/
-        break;
-
-      case SQLITE_MISUSE:  /*VM should not have been used.*/
-    		die("vsf_db_check_file(): sqlite misuse");  /*Fatal DB Error.*/
-        break;
-
-      default:
-        die("vsf_db_check_file(): unexpected result");  /*Fatal DB Error.*/
-        break;
-    }  /*switch*/
-  }    /*while*/
+    handle_result(rc, "vsf_db_change_password");
+  }
 
   sqlite3_finalize(p_stmt); 
   return sqlite3_changes(s_db_handle);
 }     
 
-
-int 
-vsf_db_check_credit(const struct vsf_session* p_sess, double amount,
-                    const struct mystr* p_filename_str)
+static void
+get_credit_section(const struct mystr* p_filename_str, int* credit_section,
+                   double* ul_price, double* dl_price)
 {
   static struct mystr sql_str = INIT_MYSTR;
-  str_alloc_text(&sql_str, 
-    "select credit from vsf_credit"
-    "  where user_id = ? and credit_section = ("
-    "    select credit_section from vsf_section where ? glob path"
-    "      order by priority desc, length(path) desc"
-    "      limit 1");
+  const char* p_tail = NULL;
+  int rc;
+
+  if (s_get_credit_section_stmt == NULL)
+  {
+    str_alloc_text(&sql_str, 
+      "select credit_section, ul_price, dl_price from vsf_section"
+      " where ? glob path"
+      " order by priority desc, length(path) desc limit 1");
+      
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                            &s_get_credit_section_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+        die("get_credit_section(): unable to prepare statement");
+  }
+
+  /* Param 2 - Filename */
+  rc = sqlite3_bind_text(s_get_credit_section_stmt, 1, 
+                         str_getbuf(p_filename_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("get_credit_section(): unable to bind parameter");
+
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_get_credit_section_stmt);
+
+    switch (rc)
+    {
+      case SQLITE_ROW:     /*A row is ready.*/
+        *credit_section = sqlite3_column_int(s_get_credit_section_stmt, 0);
+        if (ul_price != NULL)        
+          *ul_price = sqlite3_column_double(s_get_credit_section_stmt, 1);
+        if (dl_price != NULL)
+          *dl_price = sqlite3_column_double(s_get_credit_section_stmt, 2);
+        break;
+
+      default:
+        handle_result(rc, "get_credit_section");
+        break;
+    }
+  }
+
+  sqlite3_reset(s_get_credit_section_stmt);
+}
+
+static void
+get_ratio(const int user_id, double* ul_price, double* dl_price)
+{
+  static struct mystr sql_str = INIT_MYSTR;
+  const char* p_tail = NULL;
+  int rc;
+
+  if (s_get_ratio_stmt == NULL)
+  {
+    str_alloc_text(&sql_str, 
+      "select ul_price, dl_price from vsf_user"
+      "  where id = ?");
+      
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                            &s_get_ratio_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+        die("get_ratio(): unable to prepare statement");
+  }
     
   /* Param 1 - User ID */
-    
-  /* Param 2 - Filename */
+  rc = sqlite3_bind_int(s_get_ratio_stmt, 1, user_id);
+  if (rc != SQLITE_OK)
+    die("get_ratio(): unable to bind parameter");
 
-  return 0;
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_get_ratio_stmt);
+
+    switch (rc)
+    {
+      case SQLITE_ROW:     /*A row is ready.*/
+        *ul_price = sqlite3_column_double(s_get_ratio_stmt, 0);
+        *dl_price = sqlite3_column_double(s_get_ratio_stmt, 1);
+        break;
+
+      default:
+        handle_result(rc, "get_ratio");
+        break;
+    }
+  }
+
+  sqlite3_reset(s_get_credit_stmt);  
+}
+
+static double
+get_credit(const int user_id, const int credit_section)
+{
+  static struct mystr sql_str = INIT_MYSTR;
+  const char* p_tail = NULL;
+  int rc;
+  double credit = 0.0;
+
+  if (s_get_credit_stmt == NULL)
+  {
+    str_alloc_text(&sql_str, 
+      "select credit from vsf_credit"
+      "  where user_id = ? and credit_section = ?");
+      
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                            &s_get_credit_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+        die("get_credit(): unable to prepare statement");
+  }
+    
+  /* Param 1 - User ID */
+  rc = sqlite3_bind_int(s_get_credit_stmt, 1, user_id);
+  if (rc != SQLITE_OK)
+    die("get_credit(): unable to bind parameter");
+    
+  /* Param 2 - Credit section */
+  rc = sqlite3_bind_int(s_get_credit_stmt, 2, credit_section);
+  if (rc != SQLITE_OK)
+    die("get_credit(): unable to bind parameter");
+
+  /* Now we execute the SQL statement. Handle the possibility that
+     sqlite is busy, but drop out after a number of attempts. */
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_get_credit_stmt);
+
+    switch (rc)
+    {
+      case SQLITE_ROW:     /*A row is ready.*/
+        credit = sqlite3_column_double(s_get_credit_stmt, 0);
+        break;
+
+      default:
+        handle_result(rc, "get_credit");
+        break;
+    }  /*switch*/
+  }    /*while*/
+
+  sqlite3_reset(s_get_credit_stmt);
+  return credit;
+}
+
+int 
+vsf_db_check_credit(const struct vsf_session* p_sess,
+                    const struct mystr* p_filename_str,
+                    const filesize_t amount)
+{
+  int credit_section = 0;
+  double section_ul_price = 1.0;
+  double section_dl_price = 1.0;
+  double user_ul_price = 0.0;
+  double user_dl_price = 0.0;
+  double credit;
+  
+  /* Get credit section and section ratio */
+  get_credit_section(p_filename_str, &credit_section, 
+                     &section_ul_price, &section_dl_price);
+
+  /* Get user ratio */
+  get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
+ 
+  /* Get available credit for the user and section */
+  credit = get_credit(p_sess->user_id, credit_section);
+
+  double required = section_dl_price * user_dl_price * (double) amount;
+  return credit >= required ? 1 : 0;
 }
                         
 int 
-vsf_db_update_credit(const struct vsf_session* p_sess, double amount,
-                     const struct mystr* p_filename_str)
+vsf_db_update_credit(const struct vsf_session* p_sess,
+                     const struct mystr* p_filename_str,
+                     const int upload,
+                     const filesize_t amount)
 {
   static struct mystr sql_str = INIT_MYSTR;
-  str_alloc_text(&sql_str, 
-    "replace into vsf_credit (user_id, credit, credit_section)"
-    "  values (?, ?, ("
-    "    select credit_section from vsf_section"
-    "      where ? glob path"
-    "      order by priority desc, length(path) desc"
-    "      limit 1))");
+  const char* p_tail = NULL;
+  int rc;
+
+  int credit_section = 0;
+  double section_ul_price = 1.0;
+  double section_dl_price = 1.0;
+  double user_ul_price = 0.0;
+  double user_dl_price = 0.0;
+  get_credit_section(p_filename_str, &credit_section, 
+                     &section_ul_price, &section_dl_price);
+  double credit = get_credit(p_sess->user_id, credit_section);
+  get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
+  
+  if (upload)
+  {
+    credit += section_ul_price * user_ul_price * (double) amount;  
+  }
+  else
+  {
+    credit -= section_dl_price * user_ul_price * (double) amount;
+  }
+
+  if (s_update_credit_stmt == NULL)
+  {
+    str_alloc_text(&sql_str, 
+      "replace into vsf_credit (user_id, credit_section, credit)"
+      "  values (?, ?, ?)");
+  
+    rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                            &s_update_credit_stmt, &p_tail);
+    if (rc != SQLITE_OK)
+        die("vsf_db_update_credit(): unable to prepare statement");
+  }   
   
   /* Param 1 - User ID */
+  rc = sqlite3_bind_int(s_update_credit_stmt, 1, p_sess->user_id);
+  if (rc != SQLITE_OK)
+    die("vsf_db_update_credit(): unable to bind parameter");
+    
+  /* Param 2 - Credit section */
+  rc = sqlite3_bind_int(s_update_credit_stmt, 2, credit_section);
+  if (rc != SQLITE_OK)
+    die("vsf_db_update_credit(): unable to bind parameter");
+                         
+  /* Param 3 - Credit amount */
+  rc = sqlite3_bind_double(s_update_credit_stmt, 3, credit);
+  if (rc != SQLITE_OK)
+    die("vsf_db_update_credit(): unable to bind parameter");
+                        
+  /* Now we execute the SQL statement. Handle the possibility that
+     sqlite is busy, but drop out after a number of attempts. */
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_update_credit_stmt);
+    handle_result(rc, "vsf_db_update_credit");
+  }
   
-  /* Param 2 - Credit amount */
-  
-  /* Param 3 - Filename */
-  
-  return 0;
+  sqlite3_reset(s_update_credit_stmt);
+  return sqlite3_changes(s_db_handle);
 }
                       
-
 #endif

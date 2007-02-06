@@ -28,8 +28,9 @@
 #include "vsftpver.h"
 #include "db.h"
 #include "builddefs.h"
-#include "port/porting_junk.h"
 #include "banner.h"
+
+#include "port/porting_junk.h"
 
 /* Private local functions */
 static void handle_pwd(struct vsf_session* p_sess);
@@ -659,11 +660,34 @@ handle_retr(struct vsf_session* p_sess)
   vsf_log_start_entry(p_sess, kVSFLogEntryDownload);
   str_copy(&p_sess->log_str, &p_sess->ftp_arg_str);
   prepend_path_to_filename(&p_sess->log_str);
+  /* Check permissions */
   if (!vsf_access_check_file(p_sess, &p_sess->ftp_arg_str, kVSFFileGet))
   {
     vsf_cmdio_write(p_sess, FTP_NOPERM, "Permission denied.");
     return;
   }
+  
+  if (tunable_credit_enable)
+  {
+    /* Get file size */
+    struct vsf_sysutil_statbuf* p_statbuf = 0;
+    int retval = vsf_sysutil_stat(str_getbuf(&p_sess->ftp_arg_str), &p_statbuf);
+    if (vsf_sysutil_retval_is_error(retval))
+    {
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Failed to get file size.");
+      return;   
+    }  
+    filesize_t size = vsf_sysutil_statbuf_get_size(p_statbuf);    
+    vsf_sysutil_free(p_statbuf);
+    
+    /* Check credit */
+    if (!vsf_db_check_credit(p_sess, &p_sess->ftp_arg_str, size - offset))
+    {
+      vsf_cmdio_write(p_sess, FTP_FILEFAIL, "Not enough credit.");
+      return;         
+    }
+  }
+  
   opened_file = str_open(&p_sess->ftp_arg_str, kVSFSysStrOpenReadOnly);
   if (vsf_sysutil_retval_is_error(opened_file))
   {
@@ -731,6 +755,13 @@ handle_retr(struct vsf_session* p_sess)
   if (trans_ret.retval == 0)
   {
     vsf_log_do_log(p_sess, 1);
+    
+    /* Decrease credit */
+    if (tunable_credit_enable)
+    {
+      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 
+                           p_sess->transfer_size * -1);
+    }
   }
   /* Emit status message _after_ blocking dispose call to avoid buggy FTP
    * clients truncating the transfer.
@@ -1089,6 +1120,13 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   if (trans_ret.retval == 0)
   {
     vsf_log_do_log(p_sess, 1);
+    
+    /* Increase credit */
+    if (tunable_credit_enable)
+    {
+      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 
+                           p_sess->transfer_size);
+    }
   }
   if (trans_ret.retval == -1)
   {
