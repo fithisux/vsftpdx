@@ -1,6 +1,9 @@
 #summary Development diary
 #labels Featured
 
+===2007-02-06===
+  * Added credit/ratio system.
+
 ===2007-01-31===
   * Added SITE PASSWD command.
 
