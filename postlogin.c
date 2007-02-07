@@ -759,8 +759,8 @@ handle_retr(struct vsf_session* p_sess)
     /* Decrease credit */
     if (tunable_credit_enable)
     {
-      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 
-                           p_sess->transfer_size * -1);
+      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 0,
+                           p_sess->transfer_size);
     }
   }
   /* Emit status message _after_ blocking dispose call to avoid buggy FTP
@@ -914,7 +914,18 @@ handle_dir_common(struct vsf_session* p_sess, int full_details, int stat_cmd)
   }
   else if (retval == 0)
   {
-    vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "Directory send OK.");
+    if (tunable_show_infoline)
+    {
+      struct mystr infoline_str = INIT_MYSTR;
+      struct mystr dir_str = INIT_MYSTR;
+      str_getcwd(&dir_str);
+
+      vsf_db_get_infoline(p_sess, &dir_str, &infoline_str);
+      vsf_cmdio_write(p_sess, FTP_TRANSFEROK, str_getbuf(&infoline_str));
+      str_free(&infoline_str);
+    }
+    else
+      vsf_cmdio_write(p_sess, FTP_TRANSFEROK, "Directory send OK.");
   }
   else
   {
@@ -1124,7 +1135,7 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
     /* Increase credit */
     if (tunable_credit_enable)
     {
-      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 
+      vsf_db_update_credit(p_sess, &p_sess->ftp_arg_str, 1,
                            p_sess->transfer_size);
     }
   }

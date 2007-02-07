@@ -126,5 +126,8 @@ int vsf_db_update_credit(const struct vsf_session* p_sess,
                          const struct mystr* p_filename_str,
                          const int upload,
                          const filesize_t amount);
-                           
+
+int vsf_db_get_infoline(const struct vsf_session* p_sess,
+                        const struct mystr* p_dirname_str,
+                        struct mystr* infoline_str);
 #endif /* VSF_DB_H */

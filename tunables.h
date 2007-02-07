@@ -74,6 +74,7 @@ extern int tunable_ident_check_enable;        /* Check RFC1413 idents */
 extern int tunable_stealth_mode;              /* Hide if remote IP is unknown */
 extern int tunable_sqlite_acl;                /* Use access control lists */
 extern int tunable_credit_enable;             /* Enable the credit system */
+extern int tunable_show_infoline;             /* Show infoline on list */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;
