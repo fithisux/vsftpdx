@@ -21,6 +21,7 @@
 #include <stdlib.h>
 
 #define MAX_BUSY_TRIES 10
+#define MEGABYTE       0x100000
 
 static sqlite3* s_db_handle = NULL;
 static sqlite3_stmt* s_check_file_stmt = NULL;
@@ -636,8 +637,8 @@ int vsf_db_change_password(const struct vsf_session* p_sess,
 }     
 
 static void
-get_credit_section(const struct mystr* p_filename_str, int* credit_section,
-                   double* ul_price, double* dl_price)
+get_section(const struct mystr* p_filename_str, struct mystr* p_name_str, 
+            int* credit_section, double* ul_price, double* dl_price)
 {
   static struct mystr sql_str = INIT_MYSTR;
   const char* p_tail = NULL;
@@ -646,8 +647,8 @@ get_credit_section(const struct mystr* p_filename_str, int* credit_section,
   if (s_get_credit_section_stmt == NULL)
   {
     str_alloc_text(&sql_str, 
-      "select credit_section, ul_price, dl_price from vsf_section"
-      " where ? glob path"
+      "select name, credit_section, ul_price, dl_price from vsf_section"
+      " where ? glob path and credit_section notnull"
       " order by priority desc, length(path) desc limit 1");
       
     rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
@@ -670,11 +671,18 @@ get_credit_section(const struct mystr* p_filename_str, int* credit_section,
     switch (rc)
     {
       case SQLITE_ROW:     /*A row is ready.*/
-        *credit_section = sqlite3_column_int(s_get_credit_section_stmt, 0);
+        if (p_name_str != NULL)
+          str_alloc_text(p_name_str, 
+            sqlite3_column_text(s_get_credit_section_stmt, 0));
+
+        if (credit_section != NULL)
+          *credit_section = sqlite3_column_int(s_get_credit_section_stmt, 1);
+
         if (ul_price != NULL)        
-          *ul_price = sqlite3_column_double(s_get_credit_section_stmt, 1);
+          *ul_price = sqlite3_column_double(s_get_credit_section_stmt, 2);
+
         if (dl_price != NULL)
-          *dl_price = sqlite3_column_double(s_get_credit_section_stmt, 2);
+          *dl_price = sqlite3_column_double(s_get_credit_section_stmt, 3);
         break;
 
       default:
@@ -797,8 +805,8 @@ vsf_db_check_credit(const struct vsf_session* p_sess,
   double credit;
   
   /* Get credit section and section ratio */
-  get_credit_section(p_filename_str, &credit_section, 
-                     &section_ul_price, &section_dl_price);
+  get_section(p_filename_str, NULL, &credit_section, &section_ul_price, 
+              &section_dl_price);
 
   /* Get user ratio */
   get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
@@ -825,8 +833,8 @@ vsf_db_update_credit(const struct vsf_session* p_sess,
   double section_dl_price = 1.0;
   double user_ul_price = 0.0;
   double user_dl_price = 0.0;
-  get_credit_section(p_filename_str, &credit_section, 
-                     &section_ul_price, &section_dl_price);
+  get_section(p_filename_str, NULL, &credit_section, &section_ul_price, 
+              &section_dl_price);
   double credit = get_credit(p_sess->user_id, credit_section);
   get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
   
@@ -877,6 +885,34 @@ vsf_db_update_credit(const struct vsf_session* p_sess,
   
   sqlite3_reset(s_update_credit_stmt);
   return sqlite3_changes(s_db_handle);
+}
+
+
+void
+vsf_db_get_infoline(const struct vsf_session* p_sess,
+                    const struct mystr* p_dir_name_str,
+                    struct mystr* infoline_str)
+{
+  int credit_section = 0;
+  double section_ul_price = 1.0;
+  double section_dl_price = 1.0;
+  double user_ul_price = 0.0;
+  double user_dl_price = 0.0;
+  struct mystr section_name_str = INIT_MYSTR;
+
+  get_section(p_dir_name_str, &section_name_str, &credit_section, 
+                     &section_ul_price, &section_dl_price);
+  double credit = get_credit(p_sess->user_id, credit_section);
+  get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
+
+  str_alloc_text(infoline_str, "[Section: ");
+  if (!str_isempty(&section_name_str))
+    str_append_str(infoline_str, &section_name_str);
+  str_alloc_text(infoline_str, "][Credit: ");
+  str_append_double(infoline_str, credit / MEGABYTE);
+  str_alloc_text(infoline_str, "]");  
+  
+  str_free(&section_name_str);
 }
                       
 #endif

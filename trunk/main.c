@@ -131,7 +131,8 @@ main(int argc, const char* argv[])
         tunable_ident_check_enable ||
         tunable_stealth_mode ||
         tunable_sqlite_acl ||
-        tunable_credit_enable)
+        tunable_credit_enable ||
+        tunable_show_infoline)
     {
       die("vsftpd: some of your config options require sqlite_enable=YES.");
     }
