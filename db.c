@@ -891,26 +891,31 @@ vsf_db_update_credit(const struct vsf_session* p_sess,
 void
 vsf_db_get_infoline(const struct vsf_session* p_sess,
                     const struct mystr* p_dir_name_str,
-                    struct mystr* infoline_str)
+                    struct mystr* p_infoline_str)
 {
   int credit_section = 0;
   double section_ul_price = 1.0;
   double section_dl_price = 1.0;
   double user_ul_price = 0.0;
   double user_dl_price = 0.0;
-  struct mystr section_name_str = INIT_MYSTR;
+  static struct mystr section_name_str = INIT_MYSTR;
 
+  /* Get section and credit data */
   get_section(p_dir_name_str, &section_name_str, &credit_section, 
                      &section_ul_price, &section_dl_price);
   double credit = get_credit(p_sess->user_id, credit_section);
   get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
 
-  str_alloc_text(infoline_str, "[Section: ");
+  /* Build the infoline string */
+  str_alloc_text(p_infoline_str, "*** Section: ");
   if (!str_isempty(&section_name_str))
-    str_append_str(infoline_str, &section_name_str);
-  str_alloc_text(infoline_str, "][Credit: ");
-  str_append_double(infoline_str, credit / MEGABYTE);
-  str_alloc_text(infoline_str, "]");  
+    str_append_str(p_infoline_str, &section_name_str);
+  str_append_text(p_infoline_str, " * $ ");
+  str_append_double(p_infoline_str, credit / MEGABYTE);
+  str_append_text(p_infoline_str, " * UL $/MB ");
+  str_append_double(p_infoline_str, user_ul_price * section_ul_price);
+  str_append_text(p_infoline_str, " * DL $/MB ");
+  str_append_double(p_infoline_str, user_dl_price * section_dl_price);
   
   str_free(&section_name_str);
 }
