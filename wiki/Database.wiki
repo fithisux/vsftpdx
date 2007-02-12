@@ -13,7 +13,7 @@
 ||  m_user        || text    || null                      || Changer                  ||
 ||  last_login    || text    || null                      || Last login time          ||
 
-
+  
 ===vsf_ipmask===
 ||  id           || integer  || primary key               || Unique ID                ||
 ||  user_id      || integer  || not null                  || User ID (FK)             ||
@@ -22,3 +22,4 @@
 
 
 TODO: All other tables :)
+
