@@ -22,6 +22,7 @@
 #include "utility.h"
 #include "sysstr.h"
 #include "sysdeputil.h"
+#include "sysutil.h"
 
 void
 vsf_one_process_start(struct vsf_session* p_sess)
@@ -39,15 +40,32 @@ vsf_one_process_start(struct vsf_session* p_sess)
     struct mystr user_name = INIT_MYSTR;
     struct mystr chdir_str = INIT_MYSTR;
     str_alloc_text(&user_name, tunable_ftp_username);
-    if (tunable_anon_root)
+    
+    if (tunable_anonymous_enable)
     {
-      str_alloc_text(&chdir_str, tunable_anon_root);
+      if (tunable_anon_root)
+      {
+        str_alloc_text(&chdir_str, tunable_anon_root);
+      }
+    }
+    else
+    {
+      if (tunable_local_root)
+      {
+        str_alloc_text(&chdir_str, tunable_local_root); 
+      }      
     }
     if (tunable_run_as_launching_user)
     {
       if (!str_isempty(&chdir_str))
       {
         str_chdir(&chdir_str);
+        if (tunable_chroot_local_user)
+        {
+          /* Chroot without changing credentials */
+          vsf_sysutil_chroot(str_getbuf(&chdir_str));
+          vsf_sysutil_chdir("/");
+        }
       }
     }
     else

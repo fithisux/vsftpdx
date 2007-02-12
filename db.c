@@ -323,13 +323,25 @@ void
 vsf_db_close()
 {
   if (s_check_file_stmt != NULL)
+  {
     sqlite3_finalize(s_check_file_stmt);
+    s_check_file_stmt = NULL;
+  }
   if (s_get_credit_stmt != NULL)
+  {
     sqlite3_finalize(s_get_credit_stmt);
+    s_get_credit_stmt = NULL;  
+  }
   if (s_update_credit_stmt != NULL)
+  {
     sqlite3_finalize(s_update_credit_stmt);
+    s_update_credit_stmt = NULL;
+  }
   if (s_get_credit_section_stmt != NULL)
+  {
     sqlite3_finalize(s_get_credit_section_stmt);
+    s_get_credit_section_stmt = NULL;
+  }
     
   sqlite3_close(s_db_handle);
 }
@@ -736,7 +748,7 @@ get_ratio(const int user_id, double* ul_price, double* dl_price)
     }
   }
 
-  sqlite3_reset(s_get_credit_stmt);  
+  sqlite3_reset(s_get_ratio_stmt);  
 }
 
 static double
@@ -907,15 +919,16 @@ vsf_db_get_infoline(const struct vsf_session* p_sess,
   get_ratio(p_sess->user_id, &user_ul_price, &user_dl_price);
 
   /* Build the infoline string */
-  str_alloc_text(p_infoline_str, "*** Section: ");
+  str_alloc_text(p_infoline_str, "-[SECTION: ");
   if (!str_isempty(&section_name_str))
     str_append_str(p_infoline_str, &section_name_str);
-  str_append_text(p_infoline_str, " * $ ");
+  str_append_text(p_infoline_str, "]-[$ ");
   str_append_double(p_infoline_str, credit / MEGABYTE);
-  str_append_text(p_infoline_str, " * UL $/MB ");
+  str_append_text(p_infoline_str, "]-[UL$/DL$ ");
   str_append_double(p_infoline_str, user_ul_price * section_ul_price);
-  str_append_text(p_infoline_str, " * DL $/MB ");
+  str_append_text(p_infoline_str, "/");
   str_append_double(p_infoline_str, user_dl_price * section_dl_price);
+  str_append_text(p_infoline_str, "]- ");
   
   str_free(&section_name_str);
 }

@@ -20,7 +20,7 @@ ObjectOutput=
 OverrideOutput=1
 OverrideOutputName=vsftpd.exe
 HostApplication=
-Folders=config,doc,port
+Folders=config,database,doc,port
 CommandLine=./vsftpd.conf
 UseCustomMakefile=1
 CustomMakefile=Makefile
@@ -899,7 +899,7 @@ BuildCmd=
 
 [Unit86]
 FileName=createdb.sql
-Folder=
+Folder=database
 Compile=1
 Link=1
 Priority=1000
@@ -908,7 +908,7 @@ BuildCmd=
 
 [Unit87]
 FileName=Makefile
-Folder=vsftpdx
+Folder=
 Compile=0
 Link=0
 Priority=1000
@@ -928,7 +928,7 @@ BuildCmd=
 [Unit89]
 FileName=rfc1413.h
 CompileCpp=0
-Folder=vsftpdx
+Folder=
 Compile=1
 Link=1
 Priority=1000
@@ -1100,7 +1100,7 @@ BuildCmd=
 [Unit108]
 FileName=crc32.h
 CompileCpp=0
-Folder=vsftpdx
+Folder=
 Compile=1
 Link=1
 Priority=1000
@@ -1110,7 +1110,7 @@ BuildCmd=
 [Unit109]
 FileName=crc32.c
 CompileCpp=0
-Folder=vsftpdx
+Folder=
 Compile=1
 Link=1
 Priority=1000
