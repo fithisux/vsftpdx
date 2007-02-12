@@ -35,3 +35,14 @@ openssl req -x509 -nodes -days 7300 -newkey rsa:2048 \
 
 ===Run===
 _./vsftpd ./vsftpd.conf_
+
+The default password for the _root_ account is "vsftpd".
+
+===Create users===
+Currently there are no SITE commands for user management, so you have to use an SQLite client to modify the database. The easiest way is to use a graphical tool like SQLite Administrator. Check out the following example if you want to use the command line client.
+
+{{{
+$ sqlite3 ./site.db
+sqlite> insert into vsf_user (name) values ('MyUser');
+sqlite> insert into vsf_ipmaks (user_id, mask) values (1, '127.0.0.1');
+}}}
