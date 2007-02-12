@@ -9,13 +9,13 @@ The following packages are required to compile and execute the program:
   * libssl-dev
   * libsqlite3-dev
   * libcap-dev
-  * sqlite3 (libraries and sqlite3.exe are included in lib/sqlite3/cygwin)
 
 *Windows/Cygwin*
   * gcc-core
   * make
   * openssl
   * openssl-devel
+  * sqlite3 (libraries and sqlite3.exe are included in lib/sqlite3/cygwin)
 
 ===Build===
 Edit _builddefs.h_ with a text editor and set the compilation options you want. Run _make_ to compile the program.
@@ -25,6 +25,12 @@ Use the include script _createdb.sh_ or run the following command manually _sqli
 
 ===Edit the configuration===
 Edit the included file _vsftpd.conf_ with a text editor and set the options you like.
+
+===Create an SSL certificate (optional)===
+{{{
+openssl req -x509 -nodes -days 7300 -newkey rsa:2048 \
+   -keyout ./site.pem -out ./site.pem
+}}}
 
 ===Run===
 _./vsftpd ./vsftpd.conf_
