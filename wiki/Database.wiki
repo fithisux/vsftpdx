@@ -1,24 +1,24 @@
 #summary Describes the database structure
 
 ===vsf_user===
-||  id            || integer || primary key               ||    
-||  name          || text    || unique not null           ||
-||  password      || text    || null                      || 
-||  enabled       || integer || not null default 1        || 
-||  ul_price      || double  || not null default 0.0      ||
-||  dl_price      || double  || not null default 0.0      ||
-||  c_time        || text    || default current_timestamp || 
-||  c_user        || text    || default 'system'          ||
-||  m_time        || text    || default current_timestamp || 
-||  m_user        || text    || null                      ||
-||  last_login    || text    || null                      ||
+||  id            || integer || primary key               || Unique ID                ||
+||  name          || text    || unique not null           || Unique name              ||
+||  password      || text    || null                      || Password (MD5 hash)      ||
+||  enabled       || integer || not null default 1        || Account enabled          ||
+||  ul_price      || double  || not null default 0.0      || Upload reward credit/mb  ||
+||  dl_price      || double  || not null default 0.0      || Download cost credit/mb  ||
+||  c_time        || text    || default current_timestamp || Creation time            ||
+||  c_user        || text    || default 'system'          || Creator                  ||
+||  m_time        || text    || default current_timestamp || Modification time        ||
+||  m_user        || text    || null                      || Changer                  ||
+||  last_login    || text    || null                      || Last login time          ||
 
 
 ===vsf_ipmask===
-||  id         || integer || primary key ||
-||  user_id    || integer || not null    ||
-||  mask       || text    || not null    ||
-||  ident      || text    || null        ||
+||  id           || integer  || primary key               || Unique ID                ||
+||  user_id      || integer  || not null                  || User ID (FK)             ||
+||  mask         || text     || not null                  || IP mask (e.g. 127.0.0.*) ||
+||  ident        || text     || null                      || Ident name               ||
 
 
 TODO: All other tables :)
