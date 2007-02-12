@@ -17,9 +17,12 @@
 ===vsf_ipmask===
 ||  id           || integer  || primary key               || Unique ID                ||
 ||  user_id      || integer  || not null                  || User ID (FK)             ||
-||  mask         || text     || not null                  || IP mask (e.g. 127.0.0.*) ||
+||  mask         || text     || not null                  || IP mask (e.g. {{{127.0.0.*}}}) ||
 ||  ident        || text     || null                      || Ident name               ||
 
 
 TODO: All other tables :)
+
+
+
 
