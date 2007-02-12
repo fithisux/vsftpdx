@@ -4,13 +4,14 @@
 ===Install required packages===
 The following packages are required to compile and execute the program:
 
-*Ubuntu/Debian*
+*Ubuntu/Debian Linux*
   * libc-dev
   * libssl-dev
   * libsqlite3-dev
   * libcap-dev
+  * sqlite3
 
-*Windows/Cygwin*
+*Cygwin*
   * gcc-core
   * make
   * openssl
