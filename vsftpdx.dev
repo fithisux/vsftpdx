@@ -1,7 +1,7 @@
 [Project]
 FileName=vsftpdx.dev
 Name=vsftpdx
-UnitCount=109
+UnitCount=108
 Type=1
 Ver=1
 ObjFiles=
@@ -1026,15 +1026,6 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit100]
-FileName=REWARD
-Folder=doc
-Compile=0
-Link=0
-Priority=1000
-OverrideBuildCmd=0
-BuildCmd=
-
-[Unit101]
 FileName=SIZE
 Folder=doc
 Compile=0
@@ -1043,7 +1034,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit102]
+[Unit101]
 FileName=SPEED
 Folder=doc
 Compile=0
@@ -1052,7 +1043,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit103]
+[Unit102]
 FileName=TODO
 Folder=doc
 Compile=0
@@ -1061,7 +1052,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit104]
+[Unit103]
 FileName=README.ssl
 Folder=doc
 Compile=0
@@ -1070,7 +1061,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit105]
+[Unit104]
 FileName=README
 Folder=doc
 Compile=0
@@ -1079,7 +1070,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit106]
+[Unit105]
 FileName=README.security
 Folder=doc
 Compile=0
@@ -1088,7 +1079,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit107]
+[Unit106]
 FileName=INSTALL
 Folder=doc
 Compile=0
@@ -1097,8 +1088,18 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit108]
+[Unit107]
 FileName=crc32.h
+Folder=
+Compile=1
+Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+CompileCpp=0
+
+[Unit108]
+FileName=crc32.c
 CompileCpp=0
 Folder=
 Compile=1
