@@ -1,0 +1,24 @@
+#summary Describes the database structure
+
+===vsf_user===
+||  id            || integer || primary key               ||    
+||  name          || text    || unique not null           ||
+||  password      || text    || null                      || 
+||  enabled       || integer || not null default 1        || 
+||  ul_price      || double  || not null default 0.0      ||
+||  dl_price      || double  || not null default 0.0      ||
+||  c_time        || text    || default current_timestamp || 
+||  c_user        || text    || default 'system'          ||
+||  m_time        || text    || default current_timestamp || 
+||  m_user        || text    || null                      ||
+||  last_login    || text    || null                      ||
+
+
+===vsf_ipmask===
+||  id         || integer || primary key ||
+||  user_id    || integer || not null    ||
+||  mask       || text    || not null    ||
+||  ident      || text    || null        ||
+
+
+TODO: All other tables :)
