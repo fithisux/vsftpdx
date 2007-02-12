@@ -359,18 +359,25 @@ vsf_db_check_auth(struct vsf_session* p_sess,
   struct mystr log_line_str = INIT_MYSTR;
   struct mystr hash_str = INIT_MYSTR;
   
-  if (str_isempty(p_user_str) || str_isempty(p_pass_str))
+  if (str_isempty(p_user_str))
     return 0;
 
-  /* Calculate md5 hash of the password */
-  calc_md5(p_pass_str, &hash_str);
+  if (!str_isempty(p_pass_str))
+  {
+    /* Calculate md5 hash of the password */
+    calc_md5(p_pass_str, &hash_str);
+  }
+  else
+  {
+    str_alloc_text(&hash_str, ""); 
+  }   
     
   str_alloc_text(&sql_str,
     "select id from vsf_user where enabled = 1 and name = '");
   str_append_str(&sql_str, p_user_str);
-  str_append_text(&sql_str, "' and password = '");
+  str_append_text(&sql_str, "' and (password = '");
   str_append_str(&sql_str, &hash_str);
-  str_append_text(&sql_str, "'");
+  str_append_text(&sql_str, "' or password isnull)");
 
   const char* sqlbuf = str_getbuf(&sql_str);
   int uid = -1;
@@ -410,7 +417,7 @@ vsf_db_check_auth(struct vsf_session* p_sess,
       {
         /* The ident check failed, the use may only login if no ident is
            required */
-        str_append_text(&sql_str, " and ident isnull");
+        str_append_text(&sql_str, " and ident isnull or ident = ''");
 
         str_alloc_text(&log_line_str, "Ident check failed.");
         vsf_log_line(p_sess, kVSFLogEntryConnection, &log_line_str);
@@ -922,9 +929,9 @@ vsf_db_get_infoline(const struct vsf_session* p_sess,
   str_alloc_text(p_infoline_str, "-[SECTION: ");
   if (!str_isempty(&section_name_str))
     str_append_str(p_infoline_str, &section_name_str);
-  str_append_text(p_infoline_str, "]-[$ ");
+  str_append_text(p_infoline_str, "]-[CREDIT: ");
   str_append_double(p_infoline_str, credit / MEGABYTE);
-  str_append_text(p_infoline_str, "]-[UL$/DL$ ");
+  str_append_text(p_infoline_str, "]-[UL/DL: ");
   str_append_double(p_infoline_str, user_ul_price * section_ul_price);
   str_append_text(p_infoline_str, "/");
   str_append_double(p_infoline_str, user_dl_price * section_dl_price);
