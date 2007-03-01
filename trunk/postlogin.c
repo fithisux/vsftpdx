@@ -29,6 +29,7 @@
 #include "db.h"
 #include "builddefs.h"
 #include "banner.h"
+#include "site.h"
 
 #include "port/porting_junk.h"
 
@@ -1517,7 +1518,12 @@ handle_site(struct vsf_session* p_sess)
   else if (tunable_sqlite_enable &&
     str_equal_text(&p_sess->ftp_arg_str, "WHO")) 
   {
-      handle_site_who(p_sess, &s_site_args_str);
+    handle_site_who(p_sess, &s_site_args_str);
+  }
+  else if (tunable_sqlite_enable &&
+    str_equal_text(&p_sess->ftp_arg_str, "USER"))
+  {
+    vsf_site_user(p_sess, &s_site_args_str);  
   }
   else
   {

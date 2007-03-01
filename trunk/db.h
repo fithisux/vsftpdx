@@ -163,4 +163,16 @@ int vsf_db_update_credit(const struct vsf_session* p_sess,
 void vsf_db_get_infoline(const struct vsf_session* p_sess,
                          const struct mystr* p_dir_name_str,
                          struct mystr* infoline_str);
+
+                         
+int vsf_db_add_user(const struct vsf_session* p_sess,
+                    const struct mystr* p_user_str);
+                    
+int vsf_db_remove_user(const struct vsf_session* p_sess,
+                       const struct mystr* p_user_str);
+                       
+int vsf_db_change_user(const struct vsf_session* p_sess,
+                       const struct mystr* p_user_str,
+                       const struct mystr* p_attr_str,
+                       const struct mystr* p_value_str);
 #endif /* VSF_DB_H */
