@@ -950,8 +950,42 @@ vsf_db_add_user(const struct vsf_session* p_sess,
   int rc;
   static sqlite3_stmt* s_stmt;
 
-  str_alloc_text(&sql_str, 
-    "insert into vsf_user (name) values(?)");
+  /* 1. Check if an user with the given name already exists */
+  str_alloc_text(&sql_str, "select count(*) from vsf_user where name = ?");
+  rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                          &s_stmt, &p_tail);
+  if (rc != SQLITE_OK)
+    die("vsf_db_add_user(): unable to prepare statement");
+  rc = sqlite3_bind_text(s_stmt, 1, str_getbuf(p_user_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_add_user(): unable to bind parameter");
+
+  int count = 0;
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_stmt);
+    switch (rc)
+    {
+      case SQLITE_ROW:     /*A row is ready.*/
+        count = sqlite3_column_int(s_stmt, 0);
+        break;
+
+      default:
+        handle_result(rc, "vsf_db_add_user");
+        break;
+    }  /*switch*/
+  }
+  
+  if (count > 0)
+  {
+    /* User exists already */
+    return -1;  
+  }
+
+  /* 2. Insert the new user into the database */
+
+  str_alloc_text(&sql_str, "insert into vsf_user (name) values(?)");
       
   rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
                           &s_stmt, &p_tail);
@@ -978,7 +1012,7 @@ vsf_db_add_user(const struct vsf_session* p_sess,
   if (changes == 1)
     return 0;
     
-  return 1;
+  return -1;
 }
                     
 int vsf_db_remove_user(const struct vsf_session* p_sess,
@@ -1017,7 +1051,7 @@ int vsf_db_remove_user(const struct vsf_session* p_sess,
   if (changes == 1)
     return 0;
     
-  return 1;  
+  return -1;  
 }
                        
 int vsf_db_change_user(const struct vsf_session* p_sess,
