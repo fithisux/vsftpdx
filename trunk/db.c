@@ -941,16 +941,15 @@ vsf_db_get_infoline(const struct vsf_session* p_sess,
 }
 
 
-int 
-vsf_db_add_user(const struct vsf_session* p_sess,
-                    const struct mystr* p_user_str)
+/* Check if an user with the given name already exists */
+static int
+vsf_db_user_exists(const struct mystr* p_user_str)
 {
   static struct mystr sql_str = INIT_MYSTR;
   const char* p_tail = NULL;
   int rc;
   static sqlite3_stmt* s_stmt;
 
-  /* 1. Check if an user with the given name already exists */
   str_alloc_text(&sql_str, "select count(*) from vsf_user where name = ?");
   rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
                           &s_stmt, &p_tail);
@@ -979,14 +978,29 @@ vsf_db_add_user(const struct vsf_session* p_sess,
   
   if (count > 0)
   {
-    /* User exists already */
-    return -1;  
-  }
+    /* User already exists */
+    return 1;  
+  } 
+  
+  return 0; 
+}
 
-  /* 2. Insert the new user into the database */
+
+int 
+vsf_db_add_user(const struct vsf_session* p_sess,
+                const struct mystr* p_user_str)
+{
+  static struct mystr sql_str = INIT_MYSTR;
+  const char* p_tail = NULL;
+  int rc;
+  static sqlite3_stmt* s_stmt;
+
+  if (vsf_db_user_exists(p_user_str))
+    return -1;
+
+  /* Insert the new user into the database */
 
   str_alloc_text(&sql_str, "insert into vsf_user (name) values(?)");
-      
   rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
                           &s_stmt, &p_tail);
   if (rc != SQLITE_OK)
@@ -1022,7 +1036,7 @@ int vsf_db_remove_user(const struct vsf_session* p_sess,
   const char* p_tail = NULL;
   int rc;
   static sqlite3_stmt* s_stmt;
-
+  
   str_alloc_text(&sql_str, 
     "delete from vsf_user where name  = ?");
       
@@ -1058,8 +1072,52 @@ int vsf_db_change_user(const struct vsf_session* p_sess,
                        const struct mystr* p_user_str,
                        const struct mystr* p_attr_str,
                        const struct mystr* p_value_str)
-{
-  return 0;  
+{  
+  static struct mystr sql_str = INIT_MYSTR;
+  const char* p_tail = NULL;
+  int rc;
+  static sqlite3_stmt* s_stmt;
+
+  if (!vsf_db_user_exists(p_user_str))
+    return -1;
+  
+  str_alloc_text(&sql_str, 
+    "update vsf_user set ? = '?' where name  = ?");
+      
+  rc = sqlite3_prepare_v2(s_db_handle, str_getbuf(&sql_str), -1, 
+                          &s_stmt, &p_tail);
+  if (rc != SQLITE_OK)
+    die("vsf_db_change_user(): unable to prepare statement");
+  
+  /* Param 1 - Attribute */
+  rc = sqlite3_bind_text(s_stmt, 1, str_getbuf(p_attr_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_remove_user(): unable to bind parameter");  
+  
+  /* Param 2 - Value */
+  rc = sqlite3_bind_text(s_stmt, 2, str_getbuf(p_value_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_remove_user(): unable to bind parameter");
+      
+  /* Param 3 - User Name */
+  rc = sqlite3_bind_text(s_stmt, 3, str_getbuf(p_user_str), -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK)
+    die("vsf_db_remove_user(): unable to bind parameter");  
+  
+  s_step = 1;
+  while (s_step)
+  {
+    rc = sqlite3_step(s_stmt);
+    handle_result(rc, "vsf_db_change_user");
+  }
+
+  str_free(&sql_str);
+  sqlite3_reset(s_stmt);
+  int changes = sqlite3_changes(s_db_handle);
+  if (changes == 1)
+    return 0;
+    
+  return -1;
 }
                       
 #endif
