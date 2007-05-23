@@ -78,10 +78,11 @@ main(int argc, const char* argv[])
   };
   int config_specified = 0;
   const char* p_config_name = VSFTP_DEFAULT_CONFIG;
+
   /* Zero or one argument supported. If one argument is passed, it is the
    * path to the config file
    */
-  if (argc > 2)
+  if (argc > 3)
   {
     die("vsftpd: too many arguments (I take an optional config file only)");
   }
@@ -98,6 +99,17 @@ main(int argc, const char* argv[])
     p_config_name = argv[1];
     config_specified = 1;
   }
+  if (argc == 3)
+  {
+    if (!vsf_sysutil_strcmp(argv[1], "-initdb"))
+    {
+      struct mystr filename_str;
+      str_alloc_text(&filename_str, argv[2]);
+      vsf_db_init(&filename_str);
+      vsf_exit("");       
+    }  
+  }
+  
   /* This might need to open /dev/zero on systems lacking MAP_ANON. Needs
    * to be done early (i.e. before config file parse, which may use
    * anonymous pages
