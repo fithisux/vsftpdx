@@ -173,6 +173,13 @@ vsf_db_open()
   }  
 }
 
+
+void
+vsf_db_init(const struct mystr* p_filename_str)
+{
+  // TODO: Load createdb.sql and execute it  
+}
+
 void
 vsf_db_log(struct vsf_session* p_sess,
            int succeeded,

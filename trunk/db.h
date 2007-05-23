@@ -5,6 +5,14 @@
 #include "session.h"
 #include "access.h"
 
+/* vsf_db_init()
+ * PURPOSE
+ * Initializes a new database.
+ * PARAMETERS
+ * p_filename     - Full path to the database file
+ */
+void vsf_db_init(const struct mystr* p_filename_str);
+
 /* vsf_db_open()
  * PURPOSE
  * Opens the database file. If any error occurs the process terminates.
