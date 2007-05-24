@@ -16,6 +16,8 @@
 #include "access.h"
 #include "sysstr.h"
 #include "md5.h"
+#include "db.h"
+#include "filestr.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,7 +179,37 @@ vsf_db_open()
 void
 vsf_db_init(const struct mystr* p_filename_str)
 {
-  // TODO: Load createdb.sql and execute it  
+  int rc = 0;
+  char* sql_err = 0;
+  struct mystr sql_str = INIT_MYSTR;
+  static struct vsf_sysutil_statbuf* s_p_statbuf;
+
+  /* Get the filesize of the script */
+  int retval = str_lstat(p_filename_str, &s_p_statbuf);
+  if (vsf_sysutil_retval_is_error(retval))
+  {
+    die("unable to find sql script");
+  }
+ 
+  filesize_t size = vsf_sysutil_statbuf_get_size(s_p_statbuf);
+  
+  /* Read the whole file into memory */
+  (void) str_fileread(&sql_str, str_getbuf(p_filename_str) ,size);
+
+  vsf_db_open();
+
+  /* Execute the SQL statement */
+  rc = sqlite3_exec(s_db_handle, str_getbuf(&sql_str), NULL, NULL, &sql_err);
+  str_free(&sql_str);
+  if (rc != SQLITE_OK)
+  {
+    die2("sql error: ", sql_err); /* Exit */
+    /* sqlite3_free(sql_err); */
+  }
+
+  sqlite3_free(sql_err);
+  str_free(&sql_str); 
+  vsf_exit("database successfully created.");
 }
 
 void
@@ -304,7 +336,7 @@ vsf_db_add_session(struct vsf_session* p_sess)
 }
 
 void
-vsf_db_del_session(const struct vsf_session* p_sess)
+vsf_db_del_session(struct vsf_session* p_sess)
 {
   int rc = 0;
   char* sql_err = 0;
