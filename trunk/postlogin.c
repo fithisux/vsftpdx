@@ -30,6 +30,7 @@
 #include "builddefs.h"
 #include "banner.h"
 #include "site.h"
+#include "script.h"
 
 #include "port/porting_junk.h"
 
@@ -107,6 +108,14 @@ process_post_login(struct vsf_session* p_sess)
   }
   /* Handle any login message */
   vsf_banner_dir_changed(p_sess, FTP_LOGINOK);
+  
+  if (tunable_lua_enable)
+  {
+    struct mystr welcome_str = INIT_MYSTR;
+    vsf_lua_welcome(&welcome_str);
+    vsf_banner_write(p_sess, &welcome_str, FTP_LOGINOK);
+  }
+  
   vsf_cmdio_write(p_sess, FTP_LOGINOK, "Login successful.");
   while(1)
   {

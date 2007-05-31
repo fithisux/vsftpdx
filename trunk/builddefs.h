@@ -7,6 +7,7 @@
 #define VSF_BUILD_SQLITE
 #define VSF_BUILD_IPV6
 #define VSF_BUILD_IDENT
+#define VSF_BUILD_LUA
 
 #endif /* VSF_BUILDDEFS_H */
 

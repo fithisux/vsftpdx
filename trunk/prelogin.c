@@ -26,6 +26,7 @@
 #include "builddefs.h"
 #include "port/porting_junk.h"
 #include "db.h"
+#include "script.h"
 
 /* Functions used */
 static void emit_greeting(struct vsf_session* p_sess);
@@ -95,6 +96,8 @@ emit_greeting(struct vsf_session* p_sess)
     vsf_cmdio_write_exit(p_sess, FTP_IP_DENY, "Service not available.");
   }
   vsf_log_line(p_sess, kVSFLogEntryConnection, &str_log_line);
+
+  /* Banner */
   if (!str_isempty(&p_sess->banner_str))
   {
     vsf_banner_write(p_sess, &p_sess->banner_str, FTP_GREET);

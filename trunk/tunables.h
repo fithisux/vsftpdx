@@ -76,6 +76,7 @@ extern int tunable_stealth_mode;              /* Hide if remote IP is unknown */
 extern int tunable_sqlite_acl;                /* Use access control lists */
 extern int tunable_credit_enable;             /* Enable the credit system */
 extern int tunable_show_infoline;             /* Show infoline on list */
+extern int tunable_lua_enable;                /* Use Lua scripting */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;
