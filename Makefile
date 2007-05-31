@@ -3,10 +3,10 @@ CC 	=	gcc
 INSTALL	=	install
 IFLAGS  = -idirafter dummyinc
 #CFLAGS = -g
-CFLAGS	=	-I include/sqlite -g -Wall -W -Wshadow #-pedantic -Werror -Wconversion
+CFLAGS	=	-I include/sqlite -I include/lua -g -Wall -W -Wshadow #-pedantic -Werror -Wconversion
 
 LIBS	=	`./vsf_findlibs.sh`
-LINK	=	-Llib/sqlite/cygwin -lsqlite3 # -Wl,-s
+LINK	=	-Llib/sqlite/cygwin -Llib/lua/cygwin -lsqlite3 -llua51 # -Wl,-s
 
 OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
 		tunables.o ftpdataio.o secbuf.o ls.o \
@@ -14,7 +14,7 @@ OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
     banner.o filestr.o parseconf.o secutil.o \
     ascii.o oneprocess.o twoprocess.o privops.o standalone.o hash.o \
     tcpwrap.o ipaddrparse.o access.o features.o readwrite.o \
-    ssl.o sysutil.o sysdeputil.o db.o crc32.o rfc1413.o md5.o site.o
+    ssl.o sysutil.o sysdeputil.o db.o crc32.o rfc1413.o md5.o site.o script.o
 
 
 .c.o:

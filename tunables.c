@@ -79,6 +79,7 @@ int tunable_stealth_mode = 0;
 int tunable_sqlite_acl = 0;
 int tunable_credit_enable = 0;
 int tunable_show_infoline = 0;
+int tunable_lua_enable = 0;
 
 unsigned int tunable_accept_timeout = 60;
 unsigned int tunable_connect_timeout = 60;

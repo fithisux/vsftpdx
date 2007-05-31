@@ -24,6 +24,7 @@
 #include "ssl.h"
 #include "db.h"
 #include "builddefs.h"
+#include "script.h"
 
 /*
  * Forward decls of helper functions
@@ -79,6 +80,7 @@ main(int argc, const char* argv[])
   int config_specified = 0;
   const char* p_config_name = VSFTP_DEFAULT_CONFIG;
 
+
   /* Zero or one argument supported. If one argument is passed, it is the
    * path to the config file
    */
@@ -95,6 +97,16 @@ main(int argc, const char* argv[])
     if (!vsf_sysutil_strcmp(argv[1], "-v"))
     {
       vsf_exit("vsftpdx: version " VSF_VERSION "\n");
+    }
+    
+    if (!vsf_sysutil_strcmp(argv[1], "-lua"))
+    {
+      /* TEST */
+      struct mystr welcome_str = INIT_MYSTR;
+      vsf_lua_open();
+      vsf_lua_welcome(&welcome_str);
+      vsf_lua_close();
+      vsf_exit(str_getbuf(&welcome_str));  
     }
     p_config_name = argv[1];
     config_specified = 1;
@@ -201,7 +213,13 @@ main(int argc, const char* argv[])
     if (tunable_sqlite_enable)
     {
       vsf_db_open();
-    }    
+    }
+    
+    /* Enable Lua scripting */
+    if (tunable_lua_enable)
+    {
+      vsf_lua_open();
+    }
   }
   
   if (tunable_tcp_wrappers)

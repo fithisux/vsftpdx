@@ -107,6 +107,7 @@ parseconf_bool_array[] =
   { "sqlite_acl", &tunable_sqlite_acl },
   { "credit_enable", &tunable_credit_enable },
   { "show_infoline", &tunable_show_infoline },
+  { "lua_enable", &tunable_lua_enable },
   { 0, 0 }
 };
 
