@@ -8,6 +8,16 @@
 #include "utility.h"
 #include "str.h"
 #include "sysstr.h"
+#include "sysutil.h"
+
+// External declaration, inits the sqlite/lua interface
+int luaopen_sqlite3(lua_State * L);
+
+// Table for exported sqlite related functions
+static const luaL_reg s_sqlite3_methods[] = {
+  {"init", luaopen_sqlite3 },
+  {0, 0}
+};
 
 /* the Lua interpreter */
 static lua_State* L = NULL;
@@ -25,6 +35,11 @@ vsf_lua_open()
 
 	/* load Lua base libraries */
 	luaL_openlibs(L);
+
+  luaL_register(L, "libsqlite3", s_sqlite3_methods);
+	
+	/* Open the sqlite library */
+  luaopen_sqlite3(L);
 }
 
 void
@@ -39,26 +54,31 @@ void
 vsf_lua_welcome(struct mystr* p_text_str)
 {
 	int result;
+	const char filename[] = "welcome.lua";
 	
 	if (L == NULL)
     die("Lua script engine not initialized.");
-  	
-  /* load the script */
-  struct mystr script_str = INIT_MYSTR;
-  str_append_str(&script_str, &scriptpath_str);
-  str_append_text(&script_str, "welcome.lua");
-  FILE* f = fopen(str_getbuf(&script_str), "r");
-  if (f == NULL)
-    die("Unable to open script file");
-  else
-    fclose(f);
 
-  result = luaL_dofile(L, str_getbuf(&script_str));
+  /* Remember the working directory */
+  struct mystr cwd_str = INIT_MYSTR;
+  str_getcwd(&cwd_str);
+  
+  /* Change to the script directory */
+  str_chdir(&scriptpath_str); 
+  
+  /* Execute the script */
+  result = luaL_dofile(L, filename);
 	if (result != 0)
-	  die2("Unable to run welcome script: ", str_getbuf(&script_str));
+	{
+    die2("Unable to run welcome script: ", lua_tostring(L,-1));
+  }
 	  
-	const char* text = lua_tostring(L, lua_gettop(L));
-	str_alloc_text(p_text_str, text);		
+	/* Get the function result from the stack */
+  const char* text = lua_tostring(L, lua_gettop(L));
+	str_alloc_text(p_text_str, text);
+
+  /* Change back to the working directory */  
+  str_chdir(&cwd_str);
 }
 
 
