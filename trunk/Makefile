@@ -14,7 +14,8 @@ OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
     banner.o filestr.o parseconf.o secutil.o \
     ascii.o oneprocess.o twoprocess.o privops.o standalone.o hash.o \
     tcpwrap.o ipaddrparse.o access.o features.o readwrite.o \
-    ssl.o sysutil.o sysdeputil.o db.o crc32.o rfc1413.o md5.o site.o script.o
+    ssl.o sysutil.o sysdeputil.o db.o crc32.o rfc1413.o md5.o site.o script.o \
+    libluasqlite3.o
 
 
 .c.o:
