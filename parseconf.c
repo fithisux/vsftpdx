@@ -15,6 +15,7 @@
 #include "defs.h"
 #include "sysutil.h"
 #include "utility.h"
+#include "script.h"
 
 static const char* s_p_saved_filename;
 static int s_strings_copied;
@@ -184,6 +185,12 @@ parseconf_str_array[] =
 void
 vsf_parseconf_load_file(const char* p_filename, int errs_fatal)
 {
+  vsf_lua_open();
+  vsf_lua_load_config(p_filename, errs_fatal);
+  return;
+  
+  /* Old code */
+  
   struct mystr config_file_str = INIT_MYSTR;
   struct mystr config_setting_str = INIT_MYSTR;
   struct mystr config_value_str = INIT_MYSTR;

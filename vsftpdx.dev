@@ -936,13 +936,14 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit90]
-FileName=vsftpd.conf
+FileName=config.lua.c
 Folder=config
 Compile=0
 Link=0
 Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
+CompileCpp=0
 
 [Unit91]
 FileName=TUNING
