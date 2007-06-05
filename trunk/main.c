@@ -122,6 +122,9 @@ main(int argc, const char* argv[])
     }  
   }
   
+  /* Enable Lua scripting */
+  vsf_lua_open();
+  
   /* This might need to open /dev/zero on systems lacking MAP_ANON. Needs
    * to be done early (i.e. before config file parse, which may use
    * anonymous pages
@@ -214,12 +217,6 @@ main(int argc, const char* argv[])
     {
       vsf_db_open();
     }
-    
-    /* Enable Lua scripting */
-    if (tunable_lua_enable)
-    {
-      vsf_lua_open();
-    }
   }
   
   if (tunable_tcp_wrappers)
@@ -233,6 +230,9 @@ main(int argc, const char* argv[])
       vsf_parseconf_load_file(p_load_conf, 1);
     }
   }
+  
+  /* Execute hooks.lua */
+  vsf_lua_register_hooks();
                               
   /* Sanity checks - exit with a graceful error message if our STDIN is not
    * a socket. Also check various config options don't collide.

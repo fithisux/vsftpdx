@@ -3,6 +3,8 @@ require "sqlite3"
 
 local db = sqlite3.open_memory()
 
+result = ""
+
 db:exec[[
   CREATE TABLE test (id INTEGER PRIMARY KEY, content);
 
@@ -12,8 +14,10 @@ db:exec[[
 ]]
 
 for row in db:rows("SELECT * FROM test") do
-  print(row.id, row.content)
+  result = result .. row.id .. " = " .. row.content .. "\n"
 end 
 
-return 'Lua test ' .. os.date() .. '\n'
+result = result .. 'Lua test ' .. os.date() .. '\n'
+return result
+
 
