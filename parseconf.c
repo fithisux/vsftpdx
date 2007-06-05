@@ -1,10 +1,10 @@
 /*
  * Part of Very Secure FTPd
  * Licence: GPL v2
- * Author: Chris Evans
+ * Author: Chris Evans, Robert Hahn
  * parseconf.c
  *
- * Routines and support to load in a file full of tunable variables and
+ * Routines and support to load in a Lua script full of tunable variables and
  * settings, populating corresponding runtime variables.
  */
 
@@ -17,14 +17,9 @@
 #include "utility.h"
 #include "script.h"
 
-static const char* s_p_saved_filename;
 static int s_strings_copied;
 
 /* File local functions */
-static void handle_config_setting(struct mystr* p_setting_str,
-                                  struct mystr* p_value_str,
-                                  int errs_fatal);
-
 static void copy_string_settings(void);
 
 /* Tables mapping setting names to runtime variables */
@@ -108,7 +103,6 @@ parseconf_bool_array[] =
   { "sqlite_acl", &tunable_sqlite_acl },
   { "credit_enable", &tunable_credit_enable },
   { "show_infoline", &tunable_show_infoline },
-  { "lua_enable", &tunable_lua_enable },
   { 0, 0 }
 };
 
@@ -179,39 +173,42 @@ parseconf_str_array[] =
   { "ssl_ciphers", &tunable_ssl_ciphers },
   { "rsa_private_key_file", &tunable_rsa_private_key_file },
   { "dsa_private_key_file", &tunable_dsa_private_key_file },
+  { "script_dir", &tunable_script_dir },
   { 0, 0 }
 };
+
+
 
 void
 vsf_parseconf_load_file(const char* p_filename, int errs_fatal)
 {
-  vsf_lua_open();
-  vsf_lua_load_config(p_filename, errs_fatal);
-  return;
+  int result;
+  lua_State* L = vsf_lua_getstate();
   
-  /* Old code */
+	if (L == NULL)
+    die("Lua script engine not initialized.");
+
+  /* Export global symbols */
+  lua_pushinteger(L, 0);
+  lua_setglobal(L, "NO");
+  lua_pushinteger(L, 0);
+  lua_setglobal(L, "FALSE");
+  lua_pushinteger(L, 1);
+  lua_setglobal(L, "YES");
+  lua_pushinteger(L, 1);
+  lua_setglobal(L, "TRUE");
   
-  struct mystr config_file_str = INIT_MYSTR;
-  struct mystr config_setting_str = INIT_MYSTR;
-  struct mystr config_value_str = INIT_MYSTR;
-  unsigned int str_pos = 0;
-  int retval;
-  if (!p_filename)
+  /* Execute the script */
+  result = luaL_dofile(L, p_filename);
+
+  if (result != 0)
   {
-    p_filename = s_p_saved_filename;
-  }
-  else
-  {
-    if (s_p_saved_filename)
+    if (errs_fatal)
     {
-      vsf_sysutil_free((char*)s_p_saved_filename);
-    }
-    s_p_saved_filename = vsf_sysutil_strdup(p_filename);
+      die2("Unable to read configuration: ", lua_tostring(L,-1));
+    }  
   }
-  if (!p_filename)
-  {
-    bug("null filename in vsf_parseconf_load_file");
-  }
+  
   if (!s_strings_copied)
   {
     s_strings_copied = 1;
@@ -221,134 +218,94 @@ vsf_parseconf_load_file(const char* p_filename, int errs_fatal)
      */
     copy_string_settings();
   }
-  retval = str_fileread(&config_file_str, p_filename, VSFTP_CONF_FILE_MAX);
-  if (vsf_sysutil_retval_is_error(retval))
-  {
-    if (errs_fatal)
+  
+  
+  /* Get string settings */
+  const struct parseconf_str_setting* p_str_setting = parseconf_str_array;
+  while (p_str_setting->p_setting_name != 0)
+  {   
+    const char*  p_key   = (const char*) p_str_setting->p_setting_name;
+    const char** p_value = p_str_setting->p_variable;
+
+    /* Tell lua to put the global variable on the stack */
+    lua_getglobal(L, p_key);
+    
+    /* Check the variable and get the value */
+    if (lua_isstring(L, -1))
     {
-      die2("cannot open config file:", p_filename);
+      *p_value = vsf_sysutil_strdup(lua_tostring(L, -1));
+    }
+    else      
+    {
+      lua_pop(L, 1);
+    }   
+       
+    p_str_setting++;    
+  }
+      
+    
+  /* Get boolean settings */    
+  const struct parseconf_bool_setting* p_bool_setting = parseconf_bool_array;
+  while (p_bool_setting->p_setting_name != 0)
+  {
+    const char* p_key   = (const char*) p_bool_setting->p_setting_name;
+    int*        p_value = p_bool_setting->p_variable;
+
+    lua_getglobal(L, p_key);
+    if (lua_isstring(L, -1))
+    {
+      struct mystr value_str = INIT_MYSTR;
+      str_alloc_text(&value_str, lua_tostring(L, -1));
+  
+      /* Got it */
+      str_upper(&value_str);
+      if (str_equal_text(&value_str, "YES") ||
+          str_equal_text(&value_str, "TRUE") ||
+          str_equal_text(&value_str, "1"))
+      {
+        *p_value = 1;
+      }
+      else if (str_equal_text(&value_str, "NO") ||
+               str_equal_text(&value_str, "FALSE") ||
+               str_equal_text(&value_str, "0"))
+      {
+        *p_value = 0;
+      }
+      else if (errs_fatal)
+      {
+        die2("bad bool value in config file for: ", p_key);
+      }      
+    }
+    else    
+    {
+      lua_pop(L, 1);
+    }
+    
+    p_bool_setting++;
+  }
+  
+   
+  /* Get integer settings */
+  const struct parseconf_uint_setting* p_uint_setting = parseconf_uint_array;
+  while (p_uint_setting->p_setting_name != 0)
+  {
+    const char*   p_key   = (const char*) p_uint_setting->p_setting_name;
+    unsigned int* p_value = p_uint_setting->p_variable;
+
+    lua_getglobal(L, p_key);
+    if (lua_isnumber(L, -1))
+    {
+      *p_value = (unsigned int) lua_tointeger(L, -1);    
     }
     else
     {
-      return;
+      lua_pop(L, 1);
     }
-  }
-  while (str_getline(&config_file_str, &config_setting_str, &str_pos))
-  {
-    if (str_isempty(&config_setting_str) ||
-        str_get_char_at(&config_setting_str, 0) == '#')
-    {
-      continue;
-    }
-    /* Split into name=value pair */
-    str_split_char(&config_setting_str, &config_value_str, '=');
-    handle_config_setting(&config_setting_str, &config_value_str, errs_fatal);
-  }
-  str_free(&config_file_str);
-  str_free(&config_setting_str);
-  str_free(&config_value_str);
+    
+    p_uint_setting++;    
+  }     
 }
 
-static void
-handle_config_setting(struct mystr* p_setting_str, struct mystr* p_value_str,
-                      int errs_fatal)
-{
-  /* Is it a string setting? */
-  {
-    const struct parseconf_str_setting* p_str_setting = parseconf_str_array;
-    while (p_str_setting->p_setting_name != 0)
-    {
-      if (str_equal_text(p_setting_str, p_str_setting->p_setting_name))
-      {
-        /* Got it */
-        const char** p_curr_setting = p_str_setting->p_variable;
-        if (*p_curr_setting)
-        {
-          vsf_sysutil_free((char*)*p_curr_setting);
-        }
-        if (str_isempty(p_value_str))
-        {
-          *p_curr_setting = 0;
-        }
-        else
-        {
-          *p_curr_setting = str_strdup(p_value_str);
-        }
-        return;
-      }
-      p_str_setting++;
-    }
-  }
-  if (str_isempty(p_value_str))
-  {
-    if (errs_fatal)
-    {
-      die2("missing value in config file for: ", str_getbuf(p_setting_str));
-    }
-    else
-    {
-      return;
-    }
-  }
-  /* Is it a boolean value? */
-  {
-    const struct parseconf_bool_setting* p_bool_setting = parseconf_bool_array;
-    while (p_bool_setting->p_setting_name != 0)
-    {
-      if (str_equal_text(p_setting_str, p_bool_setting->p_setting_name))
-      {
-        /* Got it */
-        str_upper(p_value_str);
-        if (str_equal_text(p_value_str, "YES") ||
-            str_equal_text(p_value_str, "TRUE") ||
-            str_equal_text(p_value_str, "1"))
-        {
-          *(p_bool_setting->p_variable) = 1;
-        }
-        else if (str_equal_text(p_value_str, "NO") ||
-                 str_equal_text(p_value_str, "FALSE") ||
-                 str_equal_text(p_value_str, "0"))
-        {
-          *(p_bool_setting->p_variable) = 0;
-        }
-        else if (errs_fatal)
-        {
-          die2("bad bool value in config file for: ",
-               str_getbuf(p_setting_str));
-        }
-        return;
-      }
-      p_bool_setting++;
-    }
-  }
-  /* Is it an unsigned integer setting? */
-  {
-    const struct parseconf_uint_setting* p_uint_setting = parseconf_uint_array;
-    while (p_uint_setting->p_setting_name != 0)
-    {
-      if (str_equal_text(p_setting_str, p_uint_setting->p_setting_name))
-      {
-        /* Got it */
-        /* If the value starts with 0, assume it's an octal value */
-        if (!str_isempty(p_value_str) &&
-            str_get_char_at(p_value_str, 0) == '0')
-        {
-          *(p_uint_setting->p_variable) = str_octal_to_uint(p_value_str);
-        }
-        else
-        {
-          *(p_uint_setting->p_variable) = str_atoi(p_value_str);
-        }
-        return;
-      }
-      p_uint_setting++;
-    }
-  }
-  if (errs_fatal)
-  {
-    die2("unrecognised variable in config file: ", str_getbuf(p_setting_str));
-  }
-}
 
 static void
 copy_string_settings(void)

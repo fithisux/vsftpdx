@@ -936,8 +936,8 @@ OverrideBuildCmd=0
 BuildCmd=
 
 [Unit90]
-FileName=config.lua.c
-Folder=config
+FileName=TUNING
+Folder=doc
 Compile=0
 Link=0
 Priority=1000
@@ -946,15 +946,6 @@ BuildCmd=
 CompileCpp=0
 
 [Unit91]
-FileName=TUNING
-Folder=doc
-Compile=0
-Link=0
-Priority=1000
-OverrideBuildCmd=0
-BuildCmd=
-
-[Unit92]
 FileName=AUDIT
 Folder=doc
 Compile=0
@@ -963,7 +954,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit93]
+[Unit92]
 FileName=BENCHMARKS
 Folder=doc
 Compile=0
@@ -972,7 +963,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit94]
+[Unit93]
 FileName=BUGS
 Folder=doc
 Compile=0
@@ -981,7 +972,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit95]
+[Unit94]
 FileName=COPYING
 Folder=doc
 Compile=0
@@ -990,7 +981,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit96]
+[Unit95]
 FileName=COPYRIGHT
 Folder=doc
 Compile=0
@@ -999,7 +990,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit97]
+[Unit96]
 FileName=FAQ
 Folder=doc
 Compile=0
@@ -1008,7 +999,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit98]
+[Unit97]
 FileName=LICENSE
 Folder=doc
 Compile=0
@@ -1017,7 +1008,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit99]
+[Unit98]
 FileName=REFS
 Folder=doc
 Compile=0
@@ -1026,7 +1017,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit100]
+[Unit99]
 FileName=SIZE
 Folder=doc
 Compile=0
@@ -1035,7 +1026,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit101]
+[Unit100]
 FileName=SPEED
 Folder=doc
 Compile=0
@@ -1044,7 +1035,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit102]
+[Unit101]
 FileName=TODO
 Folder=doc
 Compile=0
@@ -1053,7 +1044,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit103]
+[Unit102]
 FileName=README.ssl
 Folder=doc
 Compile=0
@@ -1062,7 +1053,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit104]
+[Unit103]
 FileName=README
 Folder=doc
 Compile=0
@@ -1071,7 +1062,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit105]
+[Unit104]
 FileName=README.security
 Folder=doc
 Compile=0
@@ -1080,7 +1071,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit106]
+[Unit105]
 FileName=INSTALL
 Folder=doc
 Compile=0
@@ -1089,7 +1080,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit107]
+[Unit106]
 FileName=crc32.h
 Folder=
 Compile=1
@@ -1099,17 +1090,17 @@ OverrideBuildCmd=0
 BuildCmd=
 CompileCpp=0
 
-[Unit108]
+[Unit107]
 FileName=crc32.c
-CompileCpp=0
 Folder=
 Compile=1
 Link=1
 Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
+CompileCpp=0
 
-[Unit109]
+[Unit108]
 FileName=site.h
 CompileCpp=0
 Folder=
@@ -1119,7 +1110,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit110]
+[Unit109]
 FileName=site.c
 CompileCpp=0
 Folder=
@@ -1129,7 +1120,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit111]
+[Unit110]
 FileName=script.c
 CompileCpp=0
 Folder=
@@ -1139,7 +1130,7 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit112]
+[Unit111]
 FileName=script.h
 CompileCpp=0
 Folder=
@@ -1149,12 +1140,22 @@ Priority=1000
 OverrideBuildCmd=0
 BuildCmd=
 
-[Unit113]
+[Unit112]
 FileName=libluasqlite3.c
 CompileCpp=0
 Folder=vsftpdx
 Compile=1
 Link=1
+Priority=1000
+OverrideBuildCmd=0
+BuildCmd=
+
+[Unit113]
+FileName=config.lua
+CompileCpp=0
+Folder=config
+Compile=0
+Link=0
 Priority=1000
 OverrideBuildCmd=0
 BuildCmd=

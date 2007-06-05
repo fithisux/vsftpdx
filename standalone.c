@@ -187,10 +187,7 @@ vsf_standalone_main(void)
       /* Open a new database connection */
       if (tunable_sqlite_enable)
         vsf_db_open();
-        
-      if (tunable_lua_enable)
-        vsf_lua_open();
-      
+            
       /* By returning here we "launch" the child process with the same
        * contract as xinetd would provide.
        */

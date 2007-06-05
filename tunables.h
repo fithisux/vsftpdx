@@ -76,7 +76,6 @@ extern int tunable_stealth_mode;              /* Hide if remote IP is unknown */
 extern int tunable_sqlite_acl;                /* Use access control lists */
 extern int tunable_credit_enable;             /* Enable the credit system */
 extern int tunable_show_infoline;             /* Show infoline on list */
-extern int tunable_lua_enable;                /* Use Lua scripting */
 
 /* Integer/numeric defines */
 extern unsigned int tunable_accept_timeout;
@@ -132,6 +131,7 @@ extern const char* tunable_dsa_cert_file;
 extern const char* tunable_ssl_ciphers;
 extern const char* tunable_rsa_private_key_file;
 extern const char* tunable_dsa_private_key_file;
+extern const char* tunable_script_dir;
 
 #endif /* VSF_TUNABLES_H */
 

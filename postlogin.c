@@ -109,14 +109,18 @@ process_post_login(struct vsf_session* p_sess)
   /* Handle any login message */
   vsf_banner_dir_changed(p_sess, FTP_LOGINOK);
   
-  if (tunable_lua_enable)
-  {
-    struct mystr welcome_str = INIT_MYSTR;
-    vsf_lua_welcome(&welcome_str);
-    vsf_banner_write(p_sess, &welcome_str, FTP_LOGINOK);
-  }
+  /* Run welcome script */
+  struct mystr welcome_str = INIT_MYSTR;
+  vsf_lua_welcome(&welcome_str);
+  vsf_banner_write(p_sess, &welcome_str, FTP_LOGINOK);
+  
+  /* Debug */
+  struct mystr debug_str = INIT_MYSTR;
+  str_append_ulong(&debug_str, vsf_sysutil_getpid());
+  vsf_banner_write(p_sess, &debug_str, FTP_LOGINOK);  
   
   vsf_cmdio_write(p_sess, FTP_LOGINOK, "Login successful.");
+
   while(1)
   {
     int cmd_ok = 1;
@@ -1536,7 +1540,26 @@ handle_site(struct vsf_session* p_sess)
   }
   else
   {
-    vsf_cmdio_write(p_sess, FTP_BADCMD, "Unknown SITE command.");
+    int result;
+    int result_code = 0;
+    struct mystr result_str = INIT_MYSTR;
+    vsf_lua_register_hooks();
+    result = vsf_lua_site_command(&s_site_args_str, &result_code, &result_str);
+    if (result != 0)
+    {
+      vsf_cmdio_write(p_sess, FTP_BADCMD, "Unknown SITE command.");
+      return;
+    }
+    
+    if (str_contains_newline(&result_str))
+    {
+      vsf_banner_write(p_sess, &result_str, result_code);
+      vsf_cmdio_write(p_sess, result_code, "");
+    }
+    else
+    {
+      vsf_cmdio_write(p_sess, result_code, str_getbuf(&result_str));
+    }
   }
 }
 
