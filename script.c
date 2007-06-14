@@ -59,7 +59,8 @@ vsf_lua_close()
     return;
     
 	/* cleanup Lua */
-	lua_close(L);    
+	lua_close(L);
+  L = NULL;    
 }
 
 
@@ -92,6 +93,7 @@ vsf_lua_welcome(struct mystr* p_text_str)
 
 int 
 vsf_lua_site_command(const struct mystr* p_command_str, 
+                     const struct mystr* p_arg_str,
                      int* p_result_code, struct mystr* p_result_str)
 {
   lua_getglobal(L, "vsf_site_command");
@@ -99,7 +101,8 @@ vsf_lua_site_command(const struct mystr* p_command_str,
     return 1;
     
   lua_pushstring(L, str_getbuf(p_command_str));
-  lua_call(L, 1, 2);
+  lua_pushstring(L, str_getbuf(p_arg_str));
+  lua_call(L, 2, 2); /* 2 params, 2 return values */
 
   int stacksize = lua_gettop(L);
 
@@ -113,6 +116,7 @@ vsf_lua_site_command(const struct mystr* p_command_str,
     return 1;    
   str_alloc_text(p_result_str, lua_tostring(L, -1));
 
+  /* Remove to entries from the stack */
   lua_pop(L, 2);
   
   return 0;

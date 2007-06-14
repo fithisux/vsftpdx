@@ -1544,7 +1544,8 @@ handle_site(struct vsf_session* p_sess)
     int result_code = 0;
     struct mystr result_str = INIT_MYSTR;
     vsf_lua_register_hooks();
-    result = vsf_lua_site_command(&s_site_args_str, &result_code, &result_str);
+    result = vsf_lua_site_command(&p_sess->ftp_arg_str, &s_site_args_str, 
+                                  &result_code, &result_str);
     if (result != 0)
     {
       vsf_cmdio_write(p_sess, FTP_BADCMD, "Unknown SITE command.");
