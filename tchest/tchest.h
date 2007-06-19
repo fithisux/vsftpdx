@@ -107,8 +107,9 @@ tch_check_host(
 
 enum
 {
-  TCH_PERM_GRANTED,
-  TCH_PERM_DENIED 
+  TCH_PERM_OK,
+  TCH_PERM_DENIED,
+  TCH_PERM_ERR_DB
 };
 
 enum
@@ -127,6 +128,7 @@ enum
   TCH_PERM_DIR_DELETE,    /* Delete sub directory */
 };
 
+
 int
 tch_check_fileperm(
   const struct tch_session* session,
@@ -138,7 +140,8 @@ tch_check_fileperm(
 /* Credit management --------------------------------------------------------*/
 enum {
   TCH_CREDIT_OK,
-  TCH_CREDIT_INSUFFICIENT 
+  TCH_CREDIT_INSUFFICIENT,
+  TCH_ERR_DB
 };
 
 int
@@ -166,7 +169,7 @@ tch_credit_update(
   const struct tch_session* session,
   const char* filename,
   const int type,
-  const filesize_t amount
+  const long long amount
 );
 
 
@@ -198,10 +201,11 @@ tch_log_append(
   const int succeeded,
   const int what,
   const char* message,
-  const char* path,
+    const char* path,
   const long long duration,
   const long long size
 );
+
 
 /* User management ----------------------------------------------------------*/
 
