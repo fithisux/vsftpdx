@@ -2,7 +2,9 @@
 #ifndef TCHEST_H
 #define TCHEST_H
 
-#define TCH_PATH_LEN 255
+#define TCH_MAXLEN_PATH     255
+#define TCH_MAXLEN_USERNAME 64
+#define TCH_MAXLEN_HOST     64
 
 #define filesize_t long long
 
@@ -13,7 +15,9 @@ struct tch_session
   int id;   /* Session ID */
   int uid;  /* User ID */
   int pid;  /* Process ID for multiprocess servers */
-  char cwd[TCH_PATH_LEN];
+  char cwd[TCH_MAXLEN_PATH];
+  char username[TCH_MAXLEN_USERNAME];
+  char remotehost[TCH_MAXLEN_HOST];
 };
 
 void
@@ -64,24 +68,24 @@ tch_errmsg();
 
 enum {
   TCH_AUTH_OK,
-  TCH_AUTH_ERR_BADUSER,
-  TCH_AUTH_ERR_BADPASS,
-  TCH_AUTH_ERR_BADHOST  
+  TCH_AUTH_BADPASS,
+  TCH_AUTH_BADHOST,
+  TCH_AUTH_ERR_DB,
+  TCH_AUTH_ERR_PARAM,
 };
 
+
+/* Checks the authentication of the user using the specified username and
+ * password and the remote host of the connection. Optionally the ident
+ * (RFC1413) is validated.
+ */
 int
 tch_check_auth(
-  /* Specified user name */
+  struct tch_session* session, 
   const char* username,
-  
-  /* Specified password */
   const char* password,
-  
-  /* IP address of the remote host */
-  const char* host,
-
-  /* User ID if authentication was successful (out) */
-  int* uid
+  const char* host, 
+  const char* ident
 );
 
 
@@ -138,7 +142,7 @@ enum {
 };
 
 int
-tch__credit_check (
+tch_credit_check (
   /* The current session */
   const struct tch_session* session,
   
@@ -168,12 +172,35 @@ tch_credit_update(
 
 /* Log ----------------------------------------------------------------------*/
 
+enum {
+  TCH_LOG_OK,
+  TCH_LOG_ERR_DB 
+};
+
+enum {
+  TCH_LOG_NULL = 1,
+  TCH_LOG_DOWNLOAD,
+  TCH_LOG_UPLOAD,
+  TCH_LOG_MKDIR,
+  TCH_LOG_LOGIN,
+  TCH_LOG_FTP_INPUT,
+  TCH_LOG_FTP_OUTPUT,
+  TCH_LOG_CONNECTION,
+  TCH_LOG_DELETE,
+  TCH_LOG_RENAME,
+  TCH_LOG_RMDIR,
+  TCH_LOG_CHMOD
+};
+
 int
 tch_log_append(
   const struct tch_session* session,
   const int succeeded,
-  const int type,
-  const char* message
+  const int what,
+  const char* message,
+  const char* path,
+  const long long duration,
+  const long long size
 );
 
 /* User management ----------------------------------------------------------*/
