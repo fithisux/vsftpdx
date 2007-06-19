@@ -13,18 +13,23 @@
 #include "tchest.h"
 #include "md5.h"
 
-#define MAXLEN_SQL    255
-#define MAXLEN_ERRMSG 255
+#define TCH_MAXLEN_SQL    255
+#define TCH_MAXLEN_ERRMSG 255
+#define TCH_MAX_BUSYTRIES 3
 
 /* Static variables ---------------------------------------------------------*/
 
 /* SQLite */
 static sqlite3*      s_db_handle               = NULL;
+static sqlite3_stmt* s_check_auth_stmt         = NULL;
+static sqlite3_stmt* s_check_host_stmt         = NULL;
 static sqlite3_stmt* s_check_file_stmt         = NULL;
 static sqlite3_stmt* s_get_credit_stmt         = NULL;
 static sqlite3_stmt* s_update_credit_stmt      = NULL;
 static sqlite3_stmt* s_get_credit_section_stmt = NULL;
 static sqlite3_stmt* s_get_ratio_stmt          = NULL;
+static sqlite3_stmt* s_update_last_login_stmt  = NULL;
+static sqlite3_stmt* s_log_append_stmt         = NULL;
 static int           s_busy_count              = 0;
 static int           s_step                    = 1;
 
@@ -32,7 +37,17 @@ static int           s_step                    = 1;
 static lua_State*    s_lua_handle              = NULL;
 static char*         s_initpath                = NULL;
 
-static char          s_errmsg[MAXLEN_ERRMSG]   = "";
+static char          s_errmsg[TCH_MAXLEN_ERRMSG]   = "";
+
+
+// External declaration, inits the sqlite/lua interface
+int luaopen_sqlite3(lua_State * L);
+
+// Table for exported sqlite related functions
+static const luaL_reg s_sqlite3_methods[] = {
+  {"init", luaopen_sqlite3 },
+  {0, 0}
+};
 
 
 /* Private function declarations --------------------------------------------*/
@@ -42,6 +57,9 @@ static void set_errmsg();
 
 /* Calculates an MD5 sum */
 static void calc_md5(const char* data, char* hash, const int len);
+
+/* Updates the last login time of the user in the database */
+static int update_last_login(int uid);
 
 
 /* Session management -------------------------------------------------------*/
@@ -80,7 +98,19 @@ tch_open(const char* dbfile, const char* scriptdir)
     set_errmsg(sqlite3_errmsg(s_db_handle));
     return TCH_OPEN_ERR_SQLITE;
   }
-
+  
+  
+  /* Initialize Lua */
+  s_lua_handle= lua_open();
+  
+  /* Load Lua base libraries */
+  luaL_openlibs(s_lua_handle);
+  
+  /* Register the luaopen_sqlite3 function for Lua as libsqlite3:init().
+   * Lua will call the function when the sqlite3.lua script is required
+   * by another scripts.
+   */
+  luaL_register(s_lua_handle, "libsqlite3", s_sqlite3_methods); 
 }
 
 int
@@ -121,105 +151,218 @@ tch_close()
     sqlite3_close(s_db_handle);
     s_db_handle = NULL;
   }
+  
+  if (s_lua_handle != NULL)
+  {
+    lua_close(s_lua_handle);
+    s_lua_handle = NULL;  
+  }
 }
 
 
-int tch_check_auth(const char* username, const char* password,
-                   const char* host, int* uid)
+const char* tch_errmsg()
 {
-  int rc = 0;
+  return s_errmsg;      
+}
+
+
+int tch_check_auth(struct tch_session* session, const char* username, 
+                   const char* password, const char* host, const char* ident)
+{
+  int rc = 0, step = 1, busycount = 0, uid = -1, hostvalid = 0;
   char* sql_err = 0;
-  static char hash[32 + 1]; /* 128bit MD5 + terminating 0 */
-  static char sql[MAXLEN_SQL];
+  static char passhash[32 + 1]; /* 128bit MD5 + terminating 0 */
+  const char* p_tail = NULL;
 
-  if (username == NULL || strlen(username) == 0)
-    return TCH_AUTH_ERR_BADUSER;
+  static char sql_auth[] =
+    "SELECT id FROM vsf_user WHERE enabled = 1 AND name = ?"
+    " AND (password = ? OR password ISNULL)";
+    
+  static char sql_host[] = 
+    "SELECT COUNT(*) FROM vsf_ipmask WHERE user_id = ? AND ? GLOB mask"
+    " AND (ident ISNULL OR ident = ?)";
 
+  if (username == NULL || strlen(username) == 0 || 
+      host == NULL || strlen(host) == 0)
+  {
+    return TCH_AUTH_ERR_PARAM;
+  }
+
+  /* Calculate password hash */
   if (password == NULL || strlen(password) == 0)
   {
-    hash[32] = '\0';
+    passhash[32] = '\0';
   }
   else
   {
-    calc_md5(password, hash, sizeof(hash));
+    calc_md5(password, passhash, sizeof(passhash));
   }
-
-  snprintf(sql, MAXLEN_SQL,
-    "SELECT id FROM vsf_user WHERE enabled = 1 AND name = '%s'"
-    " AND (password = '%s' OR password isnull)",
-    username, password);
-
-
-#ifdef FOO
-  int uid = -1;
-  rc = sqlite3_exec(s_db_handle, sql, cb_auth, (void*) &uid, &sql_err);
-
-  str_free(&sql_str);
-  if (rc != SQLITE_OK)
+           
+  /* Prepare statement */           
+  sqlite3_stmt* s = s_check_auth_stmt; /* Shortcut */
+  if (s == NULL)
   {
-    die2("sql error: ", sql_err); /* Exit */
-    return 0;
+    rc = sqlite3_prepare_v2(s_db_handle, sql_auth, -1, &s, &p_tail);
+    if (rc != SQLITE_OK) goto ERR_DB;
+    s_check_auth_stmt = s;
   }
-
+  
+  /* Bind parameters */
+  rc = sqlite3_bind_text(s, 1, username, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, 2, passhash, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+      
+  /* Execute the statement */
+  while (step)
+  {
+    rc = sqlite3_step(s);
+    switch (rc)
+    {
+      case SQLITE_BUSY:    /*We must try again, but not forever.*/
+        if (busycount++ > TCH_MAX_BUSYTRIES) goto ERR_DB;
+        sleep(0);  /*For a gentler poll.*/
+        break;  
+      case SQLITE_DONE:    /*Success, leave the loop */
+        step = 0;
+        break;  
+      case SQLITE_ROW:     /*A row is ready.*/
+        uid = sqlite3_column_int(s, 0);
+        break;  
+      default:
+        goto ERR_DB;
+    }
+  }
+  
   if (uid == -1)
-    return 0;
-
-  /* Set the user ID */
-  p_sess->user_id = uid;
-
-  /* IP check */
-  str_alloc_text(&sql_str, "select count(*) from vsf_ipmask where user_id = ");
-  str_append_ulong(&sql_str, uid);
-  str_append_text(&sql_str, " and '");
-  str_append_str(&sql_str, p_remote_host);
-  str_append_text(&sql_str, "' glob mask");
-
-  if (tunable_ident_check_enable)
   {
-      rc = rfc1413(p_sess->p_remote_addr, p_sess->p_local_addr,
-                   &ident_str, tunable_ident_check_timeout);
-      if (rc == 0)
-      {
-        /* The ident check was successful */
-        str_append_text(&sql_str, " and (ident isnull or ident = '");
-        str_append_str(&sql_str, &ident_str);
-        str_append_text(&sql_str, "')");
-      }
-      else
-      {
-        /* The ident check failed, the use may only login if no ident is
-           required */
-        str_append_text(&sql_str, " and ident isnull or ident = ''");
-
-        str_alloc_text(&log_line_str, "Ident check failed.");
-        vsf_log_line(p_sess, kVSFLogEntryConnection, &log_line_str);
-        str_free(&log_line_str);
-      }
-
-      str_free(&ident_str);
+    return TCH_AUTH_BADPASS;      
+  }
+  
+  session->uid = uid;
+  
+  /* Prepare statement */           
+  s = s_check_host_stmt;
+  if (s == NULL)
+  {
+    rc = sqlite3_prepare_v2(s_db_handle, sql_host, -1, &s, &p_tail);
+    if (rc != SQLITE_OK) goto ERR_DB;
+    s_check_host_stmt = s;
   }
 
-  sqlbuf = str_getbuf(&sql_str);
-  int ipvalid = 0;
-  rc = sqlite3_exec(s_db_handle, sqlbuf, cb_ipcheck, (void*) &ipvalid,
-                    &sql_err);
-  str_free(&sql_str);
-  if (rc != SQLITE_OK)
+  /* Bind parameters */  
+  rc = sqlite3_bind_int(s, 1, session->uid);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, 2, host, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, 3, ident, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  
+  step = 1; busycount = 0;
+  while (step)
   {
-    die2("sql error: ", sql_err);
-    return 0;
+    rc = sqlite3_step(s);
+    switch (rc)
+    {
+      case SQLITE_ROW:
+        hostvalid = sqlite3_column_int(s, 0);
+        break;
+      case SQLITE_BUSY:
+        if (busycount++ > TCH_MAX_BUSYTRIES) goto ERR_DB;
+        sleep(0);
+        break;                
+      case SQLITE_DONE:
+        step = 0;
+        break;           
+      default:
+        goto ERR_DB;
+    }
   }
-
-  if (ipvalid)
+  
+  if (hostvalid)
   {
-    vsf_db_add_session(p_sess);
-    update_last_login(uid);
-    return 1;
+    if (!update_last_login(session->uid)) goto ERR_DB;
+    return TCH_AUTH_OK;
   }
-#endif
-
-  return 0;
+  
+  return TCH_AUTH_BADHOST;
+    
+ERR_DB:
+  set_errmsg(sqlite3_errmsg(s_db_handle));
+  return TCH_AUTH_ERR_DB;
 }
+
+
+
+int tch_log_append(const struct tch_session* session, const int succeeded,
+                   const int what, const char* message, const char* path, 
+                   const long long duration, const long long size)
+{
+  int rc = 0, busycount = 0, step = 1;
+  int pid = 0; /* TODO */
+  char* sqlerr = NULL;
+  const char* sqltail = NULL;
+  char sqlbuf[] = 
+    "INSERT INTO vsf_log (event_id, succeeded, user, remote_ip, pid, message,"
+    " path, filesize, duration) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)";
+   
+  long delta_msec = 0;
+
+  /* Prepare statement */           
+  sqlite3_stmt* s = s_log_append_stmt;
+  if (s == NULL)
+  {
+    rc = sqlite3_prepare_v2(s_db_handle, sqlbuf, -1, &s, &sqltail);
+    if (rc != SQLITE_OK) goto ERR_DB;
+    s_log_append_stmt = s;
+  }
+  
+  /* Bind parameters */  
+  int i = 1;
+  rc = sqlite3_bind_int(s, i++, what);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_int(s, i++, succeeded);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, i++, session->username, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, i++, session->remotehost, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_int(s, i++, pid);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, i++, message, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_text(s, i++, path, -1, SQLITE_STATIC);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_int64(s, i++, size);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  rc = sqlite3_bind_int64(s, i++, duration);
+  if (rc != SQLITE_OK) goto ERR_DB;
+  
+  /* Execute statement */
+  while (step)
+  {
+    rc = sqlite3_step(s);
+    switch (rc)
+    {
+      case SQLITE_BUSY:
+        if (busycount++ > TCH_MAX_BUSYTRIES) goto ERR_DB;
+        sleep(0);
+        break;                
+      case SQLITE_DONE:
+        step = 0;
+        break;           
+      default:
+        goto ERR_DB;
+    }
+  }
+
+  return TCH_LOG_OK;
+  
+ERR_DB:
+  set_errmsg(sqlite3_errmsg(s_db_handle));
+  return TCH_LOG_ERR_DB;  
+}
+
 
 /* Private methods ----------------------------------------------------------*/
 
@@ -250,4 +393,96 @@ calc_md5(const char* data, char* hash, const int len)
     if (di * 2 + 2 < len)
       sprintf(hash + di * 2, "%02x", digest[di]);
   }
+}
+
+
+static int
+update_last_login(int uid)
+{
+  int rc = 0, step = 1, busycount = 0;
+  char* sqlerr = NULL;
+  const char* sqltail = NULL;
+  static char sqlbuf[] = 
+    "UPDATE vsf_user SET last_login = current_timestamp WHERE id = ?";
+
+  /* Prepare statement */           
+  sqlite3_stmt* s = s_update_last_login_stmt;
+  if (s == NULL)
+  {
+    rc = sqlite3_prepare_v2(s_db_handle, sqlbuf, -1, &s, &sqltail);
+    if (rc != SQLITE_OK) return 0;
+    s_update_last_login_stmt = s;
+  }
+  else
+  {
+    sqlite3_reset(s);  
+  }
+
+  /* Bind parameters */  
+  rc = sqlite3_bind_int(s, 1, uid);
+  if (rc != SQLITE_OK) return 0;
+
+  /* Execute statement */
+  while (step)
+  {
+    rc = sqlite3_step(s);
+    switch (rc)
+    {
+      case SQLITE_BUSY:
+        if (busycount++ > TCH_MAX_BUSYTRIES) return 0;
+        sleep(0);
+        break;                
+      case SQLITE_DONE:
+        step = 0;
+        break;           
+      default:
+        return 0;
+    }
+  }
+ 
+  return 1;
+}
+
+
+static int 
+run_script(const char* scriptdir, const char* filename)
+{
+	int result;
+	char fullpath[TCH_MAXLEN_PATH];
+	
+	if (s_lua_handle == NULL)
+  {
+    set_errmsg("Lua script engine not initialized.");
+    return 1;
+  }
+
+#ifdef FOO
+  if (strlen(scriptdir) > 0)
+  {  
+      if (scriptdir[0] != '/' && scriptdir[0] != '~')
+      {
+        /* Relative path */
+        snprintf(fullpath, sizeof(fullpath) "%s/%s", s_initpath, scriptdir);
+        fullpath[sizeof(fullpath) -1] = '\0';
+      }
+   }
+
+
+  /* Remember the working directory */
+  struct mystr cwd_str = INIT_MYSTR;
+  str_getcwd(&cwd_str);
+  
+  
+  /* Change to the script directory */
+  
+  str_chdir(&scriptpath_str); 
+  
+  /* Execute the script */
+  result = luaL_dofile(L, filename);
+
+  /* Change back to the working directory */  
+  str_chdir(&cwd_str);
+#endif 
+  return result;
+  
 }
